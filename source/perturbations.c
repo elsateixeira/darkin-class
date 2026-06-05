@@ -5564,8 +5564,8 @@ int perturbations_initial_conditions(struct precision * ppr,
         }
         else {
           /* ET: TO DO:Since we have late time DE for the moment we just use zero initial conditions and the field will adjust but in principle should derive as well */
-          ppw->pv->y[ppw->pv->index_pt_phi_scf] = 1e-10;
-          ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] = 1e-15;
+          ppw->pv->y[ppw->pv->index_pt_phi_scf] = 0;
+          ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] = 0;
         }
         /*  a*a/k/k/ppw->pvecback[pba->index_bg_phi_prime_scf]*k*ktau_three/4.*1./(4.-6.*(1./3.)+3.*1.) * (ppw->pvecback[pba->index_bg_rho_scf] + ppw->pvecback[pba->index_bg_p_scf])* ppr->curvature_ini * s2_squared; */
         /* delta_fld expression * rho_scf with the w = 1/3, c_s = 1

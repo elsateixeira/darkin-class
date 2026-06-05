@@ -254,12 +254,13 @@ theory:
 
 Reference files in this repo:
 
-- `conformal.yaml`
-- `disformal.yaml`
-- `mixed.yaml`
-- `entropy_algebraic.yaml`
-- `entropy_derivative.yaml`
-- `momentum.yaml`
+- `configs/couplings/conformal.yaml`
+- `configs/couplings/disformal.yaml`
+- `configs/couplings/disformal_alpha.yaml`
+- `configs/couplings/mixed.yaml`
+- `configs/couplings/entropy_algebraic.yaml`
+- `configs/couplings/entropy_derivative.yaml`
+- `configs/couplings/momentum.yaml`
 
 ## 9) Practical troubleshooting
 
