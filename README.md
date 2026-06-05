@@ -123,7 +123,7 @@ The coupling workflow (conformal, disformal, mixed, entropy, momentum) is docume
 
 It includes:
 
-- required background settings (`Omega_scf`, `omega_idm`, `scf_coupling_type`)
+- required background settings (`Omega_scf`, `omega_qcdm`, `scf_coupling_type`)
 - parameter lists for each coupling type
 - `scf_parameters` ordering for `exp` and `double_exp` potentials
 - explicit `scf_*` input mode vs list mode

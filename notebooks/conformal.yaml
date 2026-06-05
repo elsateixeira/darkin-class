@@ -101,7 +101,7 @@ params:
     ref: {dist: norm, loc: 0.0224, scale: 0.0002}
     proposal: 0.0001
     latex: \Omega_b h^2
-  omega_idm:
+  omega_qcdm:
     prior: {min: 0.001, max: 0.99}
     ref: {dist: norm, loc: 0.12, scale: 0.01}
     proposal: 0.005

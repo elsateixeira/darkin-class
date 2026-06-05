@@ -97,6 +97,12 @@ struct background
 
   double Omega0_idm; /**< \f$ \Omega_{0 idm} \f$: interacting dark matter with photons, baryons, and idr */
 
+  double Omega0_qcdm; /**< \f$ \Omega_{0 qcdm} \f$: dark matter coupled to the scalar field */
+
+  double Omega_ini_qcdm; /**< \f$ ET: \Omega_{ini,qcdm} \f$: coupled cold dark matter initial value */
+
+  double omega_ini_qcdm; /**< \f$ ET: \omega_{ini,qcdm} \f$: coupled cold dark matter initial value */
+
   double Omega_ini_idm; /**< \f$ ET: \Omega_{ini,idm} \f$: coupled cold dark matter initial value */
 
   double omega_ini_idm; /**< \f$ ET: \Omega_{ini,idm} \f$: coupled cold dark matter initial value */
@@ -150,8 +156,15 @@ struct background
   enum scf_potential_type scf_potential; /**< ET: scalar field potential type */
   enum scf_coupling_type scf_coupling; /**< ET: scalar field coupling type */
   enum scf_shooting_target_type scf_shooting_target; /**< ET: shooting target when using explicit scf_* inputs */
-  short has_idm_de; /**< ET: coupling between IDM and scalar field */
-  short has_idm_de_q; /**< ET: Q_scf-sector coupling active (conformal/disformal/mixed) */
+  short scf_allow_multiple_couplings; /**< ET: allow more than one scalar-field coupling sector */
+  short scf_use_conformal; /**< ET: requested conformal scalar-field coupling */
+  short scf_use_disformal; /**< ET: requested disformal scalar-field coupling */
+  short scf_use_entropy; /**< ET: requested entropy scalar-field coupling */
+  short scf_use_momentum; /**< ET: requested momentum scalar-field coupling */
+  short has_idm_de; /**< ET: legacy IDM/SCF coupling flag; kept off when using qcdm */
+  short has_idm_de_q; /**< ET: legacy Q_scf-sector coupling flag; kept off when using qcdm */
+  short has_qcdm_de; /**< ET: coupling between qcdm and scalar field */
+  short has_qcdm_de_q; /**< ET: qcdm Q_scf-sector coupling active (conformal/disformal/mixed) */
   short has_scf_conformal; /**< ET: conformal coupling active */
   short has_scf_disformal; /**< ET: disformal coupling active */
   short has_scf_entropy; /**< ET: entropy coupling active */
@@ -165,7 +178,7 @@ struct background
   double alpha_scf;     /**< ET: disformal coupling strength */
   double D0_scf;        /**< ET: disformal coupling scale (in meV^-1) */
   double scf_gamma0;      /**< ET: momentum-coupling strength (Type-3 gamma) */
-  /* ET: entropy-coupling/source parameters (merged into IDM flow) */
+  /* ET: entropy-coupling/source parameters (coupled through QCDM) */
   double g0_scf;        /**< entropy force coefficient entering g_scf(phi) */
   double h0_scf;        /**< entropy mixing coefficient entering h_scf(phi) */
   double As_scf;        /**< amplitude of entropy source mode delta_s */
@@ -224,6 +237,7 @@ struct background
   int index_bg_rho_b;         /**< baryon density */
   int index_bg_rho_cdm;       /**< cdm density */
   int index_bg_rho_idm;       /**< idm density */
+  int index_bg_rho_qcdm;      /**< qcdm density */
   int index_bg_rho_lambda;    /**< cosmological constant density */
   int index_bg_rho_fld;       /**< fluid density */
   int index_bg_w_fld;         /**< fluid equation of state */
@@ -344,7 +358,8 @@ struct background
   //@{
 
   int index_bi_rho_dcdm;/**< {B} dcdm density */
-  int index_bi_rho_idm;  /**< ET: {B} extra index for ide density evolution */
+  int index_bi_rho_idm;  /**< ET: {B} extra index for idm density evolution */
+  int index_bi_rho_qcdm; /**< ET: {B} extra index for qcdm density evolution */
   int index_bi_rho_dr;  /**< {B} dr density */
   int index_bi_rho_fld; /**< {B} fluid density */
   int index_bi_phi_scf;       /**< {B} scalar field value */
@@ -372,7 +387,8 @@ struct background
   //@{
 
   short has_cdm;       /**< presence of cold dark matter? */
-  short has_idm;       /**< ET: presence of interacting dark matter with photons, baryons, idr and scf */
+  short has_idm;       /**< ET: presence of interacting dark matter with photons, baryons, and idr */
+  short has_qcdm;      /**< ET: presence of dark matter interacting with the scalar field */
   short has_dcdm;      /**< presence of decaying cold dark matter? */
   short has_dr;        /**< presence of relativistic decay radiation? */
   short has_scf;       /**< presence of a scalar field? */

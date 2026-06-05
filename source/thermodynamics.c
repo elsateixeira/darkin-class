@@ -315,9 +315,9 @@ int thermodynamics_init(
   pth->has_idm_dr = pba->has_idm && (pba->has_idr && pth->a_idm_dr > 0.);
   pth->has_idm_b = pba->has_idm && (pth->cross_idm_b > 0.);
   if ((pth->thermodynamics_verbose > 0) &&
-      (pba->has_idm_de == _TRUE_) &&
+      (pba->has_qcdm_de == _TRUE_) &&
       (pth->has_idm_g == _TRUE_ || pth->has_idm_b == _TRUE_ || pth->has_idm_dr == _TRUE_)) {
-    printf("Warning: multiple IDM couplings enabled (SCF + baryons/photons/DR). Equations include all couplings; please verify model assumptions.\n");
+    printf("Warning: scalar-field qcdm coupling and vanilla IDM baryon/photon/DR couplings are both enabled. These are separate matter species; please verify model assumptions.\n");
   }
 
   /** - update the user about which recombination code is being run */

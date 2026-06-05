@@ -19,7 +19,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc-11
+CC       ?= clang
 #CC       = icc
 #CC       = pgcc
 CPP      = g++ --std=c++11 -fpermissive -Wno-write-strings
@@ -33,6 +33,7 @@ AR        = ar rv
 # add a compilation option on the terminal command line:
 # "PYTHON=python3 make all" (Thanks to Marius Millea for python3 compatibility)
 PYTHON ?= python
+PIP_INSTALL_FLAGS ?= --no-build-isolation
 
 # your optimization flag
 OPTFLAG = -O3
@@ -207,13 +208,13 @@ tar: $(C_ALL) $(C_TEST) $(H_ALL) $(PRE_ALL) $(INI_ALL) $(MISC_FILES) $(HYREC) $(
 	tar czvf class.tar.gz $(C_ALL) $(H_ALL) $(PRE_ALL) $(INI_ALL) $(MISC_FILES) $(HYREC) $(PYTHON_FILES)
 
 classy: libclass.a python/classy.pyx python/cclassy.pxd
-	export CC=$(CC); output=$$($(PYTHON) -m pip install . 2>&1); \
+	export CC=$(CC); output=$$($(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) . 2>&1); \
     echo "$$output"; \
     if echo "$$output" | grep -q "ERROR: Cannot uninstall"; then \
         site_packages=$$($(PYTHON) -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())" || $(PYTHON) -c "import site; print(site.getsitepackages()[0])") && \
         echo "Cleaning up previous installation in: $$site_packages" && \
         rm -rf $$site_packages/classy* && \
-        $(PYTHON) -m pip install .; \
+        $(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) .; \
     fi
 
 clean: .base

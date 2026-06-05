@@ -397,7 +397,7 @@ int background_functions(
   /* fluid's time-dependent equation of state parameter */
   double w_fld, dw_over_da, integral_fld;
   /* scalar field quantities */
-  double phi, phi_prime, rho_idm, V0_scf; /* ET: Added extra variables here */
+  double phi, phi_prime, rho_idm=0., rho_qcdm=0., V0_scf; /* ET: Added extra variables here */
   double scf_mom; /* ET: scf_mom is Z = - phi'/a in 1307.0458 */
   /* Since we only know a_prime_over_a after we have rho_tot,
      it is not possible to simply sum up p_tot_prime directly.
@@ -443,13 +443,22 @@ int background_functions(
     rho_m += pvecback[pba->index_bg_rho_cdm];
   }
 
-  /* ET: Modified input for coupled CDM*/
+  /* ET: vanilla IDM keeps the built-in photon/baryon/idr interaction role. */
   if (pba->has_idm == _TRUE_) {
-    pvecback[pba->index_bg_rho_idm] = pvecback_B[pba->index_bi_rho_idm]; /** integrated CDM energy density */
+    pvecback[pba->index_bg_rho_idm] = pvecback_B[pba->index_bi_rho_idm];
     rho_tot += pvecback[pba->index_bg_rho_idm];
     p_tot += 0.;
     rho_m += pvecback[pba->index_bg_rho_idm];
     rho_idm = pvecback_B[pba->index_bi_rho_idm];
+  }
+
+  /* ET: qcdm is the scalar-field coupled cold dark matter component. */
+  if (pba->has_qcdm == _TRUE_) {
+    pvecback[pba->index_bg_rho_qcdm] = pvecback_B[pba->index_bi_rho_qcdm];
+    rho_tot += pvecback[pba->index_bg_rho_qcdm];
+    p_tot += 0.;
+    rho_m += pvecback[pba->index_bg_rho_qcdm];
+    rho_qcdm = pvecback_B[pba->index_bi_rho_qcdm];
   }
 
   /* dcdm */
@@ -502,7 +511,7 @@ int background_functions(
       pvecback[pba->index_bg_dgamma_scf] = dgamma_scf(pba,scf_mom);
       pvecback[pba->index_bg_ddgamma_scf] = ddgamma_scf(pba,scf_mom);
     }
-    if (pba->scf_coupling == scf_coupling_momentum) {
+    if (pba->has_scf_momentum == _TRUE_) {
       /* ET: Type-3 momentum coupling with scf_mom = -phi'/a and gamma_scf(scf_mom) defined as a separate function that can be easily changed */
       /* ET: the scalar field energy density and pressure are modified by the coupling, see e.g. 1307.0458 */
       pvecback[pba->index_bg_rho_scf] =
@@ -523,7 +532,7 @@ int background_functions(
     //rho_m += pvecback[pba->index_bg_rho_scf] - 3.* pvecback[pba->index_bg_p_scf]; //the rest contributes matter
     //printf(" a= %e, Omega_scf = %f, \n ",a, pvecback[pba->index_bg_rho_scf]/rho_tot );
     //ET: Add coupling functions for conformal/disformal dark energy models
-    if (pba->has_idm_de_q == _TRUE_) {
+    if (pba->has_qcdm_de_q == _TRUE_) {
       pvecback[pba->index_bg_C_scf] = C_scf(pba,phi); // ET: conformal factor as function of phi
       pvecback[pba->index_bg_dC_scf] = dC_scf(pba,phi); // ET: conformal factor' as function of phi
       pvecback[pba->index_bg_ddC_scf] = ddC_scf(pba,phi); // ET: conformal factor'' as function of phi
@@ -626,14 +635,14 @@ int background_functions(
   pvecback[pba->index_bg_H_prime] = - (3./2.) * (rho_tot + p_tot) * a + pba->K/a;
 
   /* ET: Added extra vectors here that need previous definitions for coupled dark energy models */
-  if (pba->has_idm_de_q == _TRUE_) {
-    pvecback[pba->index_bg_Q_scf] = Q_scf(pba,phi,phi_prime,rho_idm,a,pvecback); /** background coupling function Q */
-    pvecback[pba->index_bg_B_cff_scf] = B_cff_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
-    pvecback[pba->index_bg_B1_scf] = B1_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
-    pvecback[pba->index_bg_B2_scf] = B2_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
-    pvecback[pba->index_bg_B3_scf] = B3_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
-    pvecback[pba->index_bg_B4_scf] = B4_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
-    pvecback[pba->index_bg_B5_scf] = B5_scf(pba,phi,phi_prime,rho_idm,a,pvecback);
+  if (pba->has_qcdm_de_q == _TRUE_) {
+    pvecback[pba->index_bg_Q_scf] = Q_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback); /** background coupling function Q */
+    pvecback[pba->index_bg_B_cff_scf] = B_cff_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
+    pvecback[pba->index_bg_B1_scf] = B1_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
+    pvecback[pba->index_bg_B2_scf] = B2_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
+    pvecback[pba->index_bg_B3_scf] = B3_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
+    pvecback[pba->index_bg_B4_scf] = B4_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
+    pvecback[pba->index_bg_B5_scf] = B5_scf(pba,phi,phi_prime,rho_qcdm,a,pvecback);
       }
 
   /* Total energy density*/
@@ -646,25 +655,28 @@ int background_functions(
   pvecback[pba->index_bg_p_tot_prime] = a*pvecback[pba->index_bg_H]*dp_dloga;
   /* ET: p'_scf depending on the type of coupling */
   if (pba->has_scf == _TRUE_) {
+    double Q_bg_scf = 0.;
+    if (pba->has_qcdm_de_q == _TRUE_) {
+      Q_bg_scf = pvecback[pba->index_bg_Q_scf];
+    }
     if (pba->has_scf_momentum == _TRUE_) {
       /* ET: generic Type-3 momentum coupling with Z = -phi'/a and arbitrary gamma_scf(Z) */
       double denom_gamma = 1. - pvecback[pba->index_bg_ddgamma_scf];
+      double Z_minus_gamma_Z = pvecback[pba->index_bg_mom_scf]-pvecback[pba->index_bg_dgamma_scf];
       class_test(fabs(denom_gamma) < 1e-14,
                  pba->error_message,
                  "In momentum coupling, 1-gamma_ZZ is too close to zero");
       /* ET: p'_scf from p_scf=(Z^2/2-gamma-V)/3 using KG written in terms of Z */
       pvecback[pba->index_bg_p_prime_scf] = (a/3.)*(-3.*pvecback[pba->index_bg_H]
-         *(pvecback[pba->index_bg_mom_scf]-pvecback[pba->index_bg_dgamma_scf])
-         *(pvecback[pba->index_bg_mom_scf]-pvecback[pba->index_bg_dgamma_scf])/denom_gamma
-         + pvecback[pba->index_bg_dV_scf]
-         *((pvecback[pba->index_bg_mom_scf]-pvecback[pba->index_bg_dgamma_scf])/denom_gamma
-           + pvecback[pba->index_bg_mom_scf]));
+         *Z_minus_gamma_Z*Z_minus_gamma_Z/denom_gamma
+         + (pvecback[pba->index_bg_dV_scf]-Q_bg_scf)*Z_minus_gamma_Z/denom_gamma
+         + pvecback[pba->index_bg_dV_scf]*pvecback[pba->index_bg_mom_scf]);
     }
-    else if (pba->has_idm_de_q == _TRUE_) {
+    else if (pba->has_qcdm_de_q == _TRUE_) {
       pvecback[pba->index_bg_p_prime_scf] = pvecback[pba->index_bg_phi_prime_scf]*
         (-pvecback[pba->index_bg_phi_prime_scf]*pvecback[pba->index_bg_H]/a
          -2./3.*pvecback[pba->index_bg_dV_scf]
-         +1./3.*pvecback[pba->index_bg_Q_scf]);
+         +1./3.*Q_bg_scf);
     }
     else {
       pvecback[pba->index_bg_p_prime_scf] = pvecback[pba->index_bg_phi_prime_scf]*
@@ -773,6 +785,7 @@ int background_w_fld(
     Omega_m = pba->Omega0_b;
     if (pba->has_cdm == _TRUE_) Omega_m += pba->Omega0_cdm;
     if (pba->has_idm == _TRUE_) Omega_m += pba->Omega0_idm;
+    if (pba->has_qcdm == _TRUE_) Omega_m += pba->Omega0_qcdm;
     if (pba->has_dcdm == _TRUE_)
       class_stop(pba->error_message,"Early Dark Energy not compatible with decaying Dark Matter because we omitted to code the calculation of a_eq in that case, but it would not be difficult to add it if necessary, should be a matter of 5 minutes");
     a_eq = Omega_r/Omega_m; // assumes a flat universe with a=1 today
@@ -1055,6 +1068,7 @@ int background_indices(
 
   pba->has_cdm = _FALSE_;
   pba->has_idm = _FALSE_;
+  pba->has_qcdm = _FALSE_;
   pba->has_ncdm = _FALSE_;
   pba->has_dcdm = _FALSE_;
   pba->has_dr = _FALSE_;
@@ -1072,6 +1086,9 @@ int background_indices(
   if (pba->Omega0_idm != 0.)
     pba->has_idm = _TRUE_;
 
+  if (pba->Omega0_qcdm != 0.)
+    pba->has_qcdm = _TRUE_;
+
   if (pba->Omega0_ncdm_tot != 0.)
     pba->has_ncdm = _TRUE_;
 
@@ -1085,12 +1102,19 @@ int background_indices(
     pba->has_scf = _TRUE_;
 
   // ET: define coupling activation flags
-  pba->has_idm_de = (pba->has_idm == _TRUE_) && (pba->has_scf == _TRUE_) && (pba->scf_coupling != scf_coupling_none);
-  pba->has_scf_conformal = (pba->has_idm_de == _TRUE_) && ((pba->scf_coupling == scf_coupling_conformal) || (pba->scf_coupling == scf_coupling_mixed));
-  pba->has_scf_disformal = (pba->has_idm_de == _TRUE_) && ((pba->scf_coupling == scf_coupling_disformal) || (pba->scf_coupling == scf_coupling_mixed));
-  pba->has_scf_entropy = (pba->has_idm_de == _TRUE_) && (pba->scf_coupling == scf_coupling_entropy);
-  pba->has_scf_momentum = (pba->has_idm_de == _TRUE_) && (pba->scf_coupling == scf_coupling_momentum);
-  pba->has_idm_de_q = (pba->has_idm_de == _TRUE_) && (pba->scf_coupling == scf_coupling_conformal || pba->scf_coupling == scf_coupling_disformal || pba->scf_coupling == scf_coupling_mixed);
+  pba->has_idm_de = _FALSE_;
+  pba->has_idm_de_q = _FALSE_;
+  pba->has_qcdm_de = (pba->has_qcdm == _TRUE_) && (pba->has_scf == _TRUE_) &&
+    ((pba->scf_use_conformal == _TRUE_) ||
+     (pba->scf_use_disformal == _TRUE_) ||
+     (pba->scf_use_entropy == _TRUE_) ||
+     (pba->scf_use_momentum == _TRUE_));
+  pba->has_scf_conformal = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_conformal == _TRUE_);
+  pba->has_scf_disformal = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_disformal == _TRUE_);
+  pba->has_scf_entropy = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_entropy == _TRUE_);
+  pba->has_scf_momentum = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_momentum == _TRUE_);
+  pba->has_qcdm_de_q = (pba->has_qcdm_de == _TRUE_) &&
+    ((pba->has_scf_conformal == _TRUE_) || (pba->has_scf_disformal == _TRUE_));
 
   if (pba->Omega0_lambda != 0.)
     pba->has_lambda = _TRUE_;
@@ -1136,6 +1160,9 @@ int background_indices(
   /* ET: index for rho_idm  */
   class_define_index(pba->index_bg_rho_idm,pba->has_idm,index_bg,1);
 
+  /* ET: index for rho_qcdm  */
+  class_define_index(pba->index_bg_rho_qcdm,pba->has_qcdm,index_bg,1);
+
   /* - indices for ncdm. We only define the indices for ncdm1
      (density, pressure, pseudo-pressure), the other ncdm indices
      are contiguous */
@@ -1176,19 +1203,19 @@ int background_indices(
   class_define_index(pba->index_bg_p_scf,pba->has_scf,index_bg,1);
   class_define_index(pba->index_bg_p_prime_scf,pba->has_scf,index_bg,1);
   /* ET: Added conformal/disformal coupling indices here */
-  class_define_index(pba->index_bg_C_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_dC_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_ddC_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_D_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_dD_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_ddD_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_Q_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B_cff_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B1_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B2_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B3_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B4_scf,pba->has_idm_de_q,index_bg,1);
-  class_define_index(pba->index_bg_B5_scf,pba->has_idm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_C_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_dC_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_ddC_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_D_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_dD_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_ddD_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_Q_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B_cff_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B1_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B2_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B3_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B4_scf,pba->has_qcdm_de_q,index_bg,1);
+  class_define_index(pba->index_bg_B5_scf,pba->has_qcdm_de_q,index_bg,1);
 
   /* - index for Lambda */
   class_define_index(pba->index_bg_rho_lambda,pba->has_lambda,index_bg,1);
@@ -1278,6 +1305,9 @@ int background_indices(
 
   /* ET: Evolving CDM evolution depending on coupling */
   class_define_index(pba->index_bi_rho_idm,pba->has_idm,index_bi,1);
+
+  /* ET: Evolving scalar-field coupled CDM density */
+  class_define_index(pba->index_bi_rho_qcdm,pba->has_qcdm,index_bi,1);
 
   /* -> energy density in DR */
   class_define_index(pba->index_bi_rho_dr,pba->has_dr,index_bi,1);
@@ -2246,7 +2276,7 @@ int background_solve(
       else {
         printf("     -> scf_lambda = %.6e\n",pba->lambda_scf);
         printf("     -> scf_V0 = %.6e\n",pba->V0_scf);
-        if (pba->scf_coupling != scf_coupling_none) {
+        if (pba->has_qcdm_de == _TRUE_) {
           printf("     -> scf_C0 = %.6e\n",pba->C0_scf);
           printf("     -> scf_beta = %.6e\n",pba->beta_scf);
           printf("     -> scf_alpha = %.6e\n",pba->alpha_scf);
@@ -2267,6 +2297,8 @@ int background_solve(
     pba->Omega0_nfsm += pba->Omega0_cdm;
   if (pba->has_idm == _TRUE_)
     pba->Omega0_nfsm += pba->Omega0_idm;
+  if (pba->has_qcdm == _TRUE_)
+    pba->Omega0_nfsm += pba->Omega0_qcdm;
   if (pba->has_dcdm == _TRUE_)
     pba->Omega0_nfsm += pba->Omega0_dcdm;
   for (n_ncdm=0;n_ncdm<pba->N_ncdm; n_ncdm++) {
@@ -2312,7 +2344,7 @@ int background_initial_conditions(
 
   double rho_ncdm, p_ncdm, rho_ncdm_rel_tot=0.;
   /* ET: Added extra idm variables here */
-  double f,Omega_rad, rho_rad, Omega_idm, rho_idm;
+  double f,Omega_rad, rho_rad, Omega_idm, rho_idm, Omega_qcdm;
   int counter,is_early_enough,n_ncdm;
   double scf_lambda;
   double rho_fld_today;
@@ -2429,10 +2461,25 @@ int background_initial_conditions(
  if (pba->has_idm == _TRUE_){
     /* Remember that the critical density today in CLASS conventions is H0^2 */
     Omega_idm = pba->Omega0_idm;
+    if (pba->Omega_ini_idm == 0.) {
+      pba->Omega_ini_idm = Omega_idm;
+    }
     pvecback_integration[pba->index_bi_rho_idm] =
       pba->Omega_ini_idm*pba->H0*pba->H0/pow(a,3);
     if (pba->background_verbose > 3)
       printf("Density is %g. Omega_ini=%g\n",pvecback_integration[pba->index_bi_rho_idm],pba->Omega_ini_idm);
+  }
+
+  /** Scalar-field coupled CDM */
+  if (pba->has_qcdm == _TRUE_) {
+    Omega_qcdm = pba->Omega0_qcdm;
+    if (pba->Omega_ini_qcdm == 0.) {
+      pba->Omega_ini_qcdm = Omega_qcdm;
+    }
+    pvecback_integration[pba->index_bi_rho_qcdm] =
+      pba->Omega_ini_qcdm*pba->H0*pba->H0/pow(a,3);
+    if (pba->background_verbose > 3)
+      printf("QCDM density is %g. Omega_ini=%g\n",pvecback_integration[pba->index_bi_rho_qcdm],pba->Omega_ini_qcdm);
   }
 
 
@@ -2624,6 +2671,7 @@ int background_output_titles(
   class_store_columntitle(titles,"(.)rho_b",_TRUE_);
   class_store_columntitle(titles,"(.)rho_cdm",pba->has_cdm);
   class_store_columntitle(titles,"(.)rho_idm",pba->has_idm);
+  class_store_columntitle(titles,"(.)rho_qcdm",pba->has_qcdm);
   if (pba->has_ncdm == _TRUE_) {
     for (n=0; n<pba->N_ncdm; n++) {
       class_sprintf(tmp,"(.)rho_ncdm[%d]",n);
@@ -2668,19 +2716,19 @@ int background_output_titles(
   class_store_columntitle(titles,"pc_scf",pba->has_scf_entropy);
 
   /* ET: conformal/disformal coupling columns */
-  class_store_columntitle(titles,"C_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"dC_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"ddC_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"D_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"dD_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"ddD_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"Q_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B_cff_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B1_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B2_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B3_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B4_scf",pba->has_idm_de_q);
-  class_store_columntitle(titles,"B5_scf",pba->has_idm_de_q);
+  class_store_columntitle(titles,"C_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"dC_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"ddC_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"D_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"dD_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"ddD_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"Q_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B_cff_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B1_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B2_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B3_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B4_scf",pba->has_qcdm_de_q);
+  class_store_columntitle(titles,"B5_scf",pba->has_qcdm_de_q);
 
   class_store_columntitle(titles,"(.)rho_tot",_TRUE_);
   class_store_columntitle(titles,"(.)p_tot",_TRUE_);
@@ -2734,6 +2782,7 @@ int background_output_data(
     class_store_double(dataptr,pvecback[pba->index_bg_rho_b],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_rho_cdm],pba->has_cdm,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_rho_idm],pba->has_idm,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_rho_qcdm],pba->has_qcdm,storeidx);
     if (pba->has_ncdm == _TRUE_) {
       for (n=0; n<pba->N_ncdm; n++) {
         class_store_double(dataptr,pvecback[pba->index_bg_rho_ncdm1+n],_TRUE_,storeidx);
@@ -2776,19 +2825,19 @@ int background_output_data(
     class_store_double(dataptr,pvecback[pba->index_bg_pc_scf],pba->has_scf_entropy,storeidx);
 
     /* ET: conformal/disformal */
-    class_store_double(dataptr,pvecback[pba->index_bg_C_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_dC_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_ddC_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_D_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_dD_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_ddD_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_Q_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B_cff_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B1_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B2_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B3_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B4_scf],pba->has_idm_de_q,storeidx);
-    class_store_double(dataptr,pvecback[pba->index_bg_B5_scf],pba->has_idm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_C_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_dC_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_ddC_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_D_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_dD_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_ddD_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_Q_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B_cff_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B1_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B2_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B3_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B4_scf],pba->has_qcdm_de_q,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_B5_scf],pba->has_qcdm_de_q,storeidx);
 
     class_store_double(dataptr,pvecback[pba->index_bg_rho_tot],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_p_tot],_TRUE_,storeidx);
@@ -2888,6 +2937,9 @@ int background_derivs(
   if (pba->has_idm == _TRUE_){
     rho_M += pvecback[pba->index_bg_rho_idm];
   }
+  if (pba->has_qcdm == _TRUE_){
+    rho_M += pvecback[pba->index_bg_rho_qcdm];
+  }
 
   dy[pba->index_bi_D] = y[pba->index_bi_D_prime]/a/H;
   dy[pba->index_bi_D_prime] = -y[pba->index_bi_D_prime] + 1.5*a*rho_M*y[pba->index_bi_D]/H;
@@ -2907,48 +2959,50 @@ int background_derivs(
     dy[pba->index_bi_rho_fld] = -3.*(1.+pvecback[pba->index_bg_w_fld])*y[pba->index_bi_rho_fld];
   }
 
-  // ET: uncoupled scf evolution
-  if ((pba->has_scf == _TRUE_) && (pba->has_scf_momentum == _FALSE_) && (pba->has_idm_de_q == _FALSE_)) {
-    /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmological time)
-        written as \f$ d\phi/dlna = phi' / (aH) \f$ and \f$ d\phi'/dlna = -2*phi' - (a/H) dV \f$ */
-    dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
-    dy[pba->index_bi_phi_prime_scf] = - 2*y[pba->index_bi_phi_prime_scf] - a*dV_scf(pba,y[pba->index_bi_phi_scf])/H ;
-  }
+  // ET: scalar-field background evolution; Q-sector and momentum terms can be combined
+  if (pba->has_scf == _TRUE_) {
+    double Q_bg_scf = 0.;
+    if (pba->has_qcdm_de_q == _TRUE_) {
+      Q_bg_scf = Q_scf(pba,y[pba->index_bi_phi_scf],y[pba->index_bi_phi_prime_scf],y[pba->index_bi_rho_qcdm],a,pvecback);
+    }
 
-  // ET: coupled scf and idm evolution
-  if (pba->has_scf_momentum == _TRUE_){
-    double denom_gamma = 1. - ddgamma_scf(pba,pvecback[pba->index_bg_mom_scf]);
-    class_test(fabs(denom_gamma) < 1e-14,
-               error_message,
-               "In momentum coupling, 1-gamma_ZZ is too close to zero in background KG.");
     dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
-    /* ET: Eq. (102)-type KG for generic gamma(Z), with Z=-phi'/a */
-    dy[pba->index_bi_phi_prime_scf] =
-      y[pba->index_bi_phi_prime_scf] - 3.*a*(dgamma_scf(pba,pvecback[pba->index_bg_mom_scf]) 
-      - pvecback[pba->index_bg_mom_scf])/denom_gamma - a*dV_scf(pba,y[pba->index_bi_phi_scf])/(H*denom_gamma);
-    /* ET: Type-3 momentum coupling has no background energy transfer */
-  }
 
-  // ET: coupled scf and idm evolution (conformal/disformal)
-  if (pba->has_idm_de_q == _TRUE_){
-    /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmic time) */
-    dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
-    /* ET: Modified KG equation including the coupling */
-    dy[pba->index_bi_phi_prime_scf] = - (2*y[pba->index_bi_phi_prime_scf]
-       + a*(dV_scf(pba,y[pba->index_bi_phi_scf])-Q_scf(pba,y[pba->index_bi_phi_scf],y[pba->index_bi_phi_prime_scf],y[pba->index_bi_rho_idm],a,pvecback))/H) ;
-  }
-
-  /* ET: IDM background evolution:
-     - with conformal/disformal coupling: modified continuity
-     - otherwise (uncoupled / entropy / momentum): standard rho_idm' = -3 rho_idm */
-  if (pba->has_idm == _TRUE_) {
-    if (pba->has_idm_de_q == _TRUE_) {
-      dy[pba->index_bi_rho_idm] = -3.*y[pba->index_bi_rho_idm] -
-        (y[pba->index_bi_phi_prime_scf]*(1./3.)*
-         Q_scf(pba,y[pba->index_bi_phi_scf],y[pba->index_bi_phi_prime_scf],y[pba->index_bi_rho_idm],a,pvecback))/a/H;
+    if (pba->has_scf_momentum == _TRUE_) {
+      double denom_gamma = 1. - ddgamma_scf(pba,pvecback[pba->index_bg_mom_scf]);
+      class_test(fabs(denom_gamma) < 1e-14,
+                 error_message,
+                 "In momentum coupling, 1-gamma_ZZ is too close to zero in background KG.");
+      /* ET: Eq. (102)-type KG for generic gamma(Z), with optional Q-sector source added as dV -> dV-Q. */
+      dy[pba->index_bi_phi_prime_scf] =
+        y[pba->index_bi_phi_prime_scf] - 3.*a*(dgamma_scf(pba,pvecback[pba->index_bg_mom_scf])
+        - pvecback[pba->index_bg_mom_scf])/denom_gamma
+        - a*(dV_scf(pba,y[pba->index_bi_phi_scf])-Q_bg_scf)/(H*denom_gamma);
     }
     else {
-      dy[pba->index_bi_rho_idm] = -3.*y[pba->index_bi_rho_idm];
+      /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 (dV-Q) = 0 \f$ when Q is active. */
+      dy[pba->index_bi_phi_prime_scf] =
+        -2.*y[pba->index_bi_phi_prime_scf]
+        - a*(dV_scf(pba,y[pba->index_bi_phi_scf])-Q_bg_scf)/H;
+    }
+  }
+
+  /* ET: vanilla IDM background evolution: standard dust. */
+  if (pba->has_idm == _TRUE_) {
+    dy[pba->index_bi_rho_idm] = -3.*y[pba->index_bi_rho_idm];
+  }
+
+  /* ET: qcdm background evolution:
+     - with conformal/disformal coupling: modified continuity
+     - otherwise (entropy / momentum): standard rho_qcdm' = -3 rho_qcdm */
+  if (pba->has_qcdm == _TRUE_) {
+    if (pba->has_qcdm_de_q == _TRUE_) {
+      dy[pba->index_bi_rho_qcdm] = -3.*y[pba->index_bi_rho_qcdm] -
+        (y[pba->index_bi_phi_prime_scf]*(1./3.)*
+         Q_scf(pba,y[pba->index_bi_phi_scf],y[pba->index_bi_phi_prime_scf],y[pba->index_bi_rho_qcdm],a,pvecback))/a/H;
+    }
+    else {
+      dy[pba->index_bi_rho_qcdm] = -3.*y[pba->index_bi_rho_qcdm];
     }
   }
 
@@ -3094,8 +3148,12 @@ int background_output_budget(
       budget_matter+=pba->Omega0_cdm;
     }
     if (pba->has_idm == _TRUE_){
-      class_print_species("Interacting DM - idr,b,g,scf",idm);
+      class_print_species("Interacting DM - idr,b,g",idm);
       budget_matter+=pba->Omega0_idm;
+    }
+    if (pba->has_qcdm == _TRUE_){
+      class_print_species("SCF-coupled DM",qcdm);
+      budget_matter+=pba->Omega0_qcdm;
     }
     if (pba->has_dcdm == _TRUE_) {
       class_print_species("Decaying Cold Dark Matter",dcdm);
@@ -3289,6 +3347,9 @@ double g_scf(struct background *pba,
              double phi
              ) {
   double conv = (1.e-120)*(1.44983e113);
+  if (pba->g0_scf == 0.) {
+    return 0.;
+  }
   return pba->g0_scf*phi*conv;
 }
 
@@ -3296,6 +3357,9 @@ double dg_scf(struct background *pba,
               double phi
               ) {
   double conv = (1.e-120)*(1.44983e113);
+  if (pba->g0_scf == 0.) {
+    return 0.;
+  }
   return pba->g0_scf*conv;
 }
 
@@ -3308,6 +3372,9 @@ double ddg_scf(struct background *pba,
 double h_scf(struct background *pba,
              double phi
              ) {
+  if (pba->h0_scf == 0.) {
+    return 0.;
+  }
   return pba->h0_scf;
 }
 
@@ -3358,10 +3425,7 @@ double C_scf(
   double scf_beta  = pba->beta_scf;
   double scf_C0 = pba->C0_scf;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_disformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_conformal == _FALSE_) {
     return 1.0;
   }
   return scf_C0*exp(2.*scf_beta*phi);
@@ -3375,10 +3439,7 @@ double dC_scf(
   double scf_beta  = pba->beta_scf;
   double scf_C0 = pba->C0_scf;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_disformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_conformal == _FALSE_) {
     return 0.0;
   }
   return 2.*scf_beta*scf_C0*exp(2.*scf_beta*phi);
@@ -3392,10 +3453,7 @@ double ddC_scf(
   double scf_beta  = pba->beta_scf;
   double scf_C0 = pba->C0_scf;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_disformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_conformal == _FALSE_) {
     return 0.0;
   }
   return pow(2.*scf_beta,2.0)*scf_C0*exp(2.*scf_beta*phi);
@@ -3411,10 +3469,7 @@ double D_scf(
   double scf_alpha  = pba->alpha_scf;
   double scf_D0     = pow(pba->D0_scf, 4)*2.4248e+8;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_conformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return  scf_D0*exp(2*scf_alpha*phi);
@@ -3427,10 +3482,7 @@ double dD_scf(
 
   double scf_alpha  = pba->alpha_scf;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_conformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return  2*scf_alpha*D_scf(pba,phi);
@@ -3443,10 +3495,7 @@ double ddD_scf(
 
   double scf_alpha  = pba->alpha_scf;
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_conformal) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return pow(2*scf_alpha,2.)*D_scf(pba,phi);
@@ -3461,9 +3510,7 @@ double Q_scf(
              double a,
              double *pvecback) {
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
 
@@ -3483,12 +3530,10 @@ double B_cff_scf(
                 double a,
                 double * pvecback) { //coefficient of delta Q used in the perturbation module
   // ET: these ifs avoid dividing by zero in the conformal coupling case, but should be checked for consistency with the other couplings (will likely fail then)
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 1.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return - 3.0*rho_idm/(a*a*C_scf(pba,phi));
   }
   return - 3.0*rho_idm/(a*a*C_scf(pba,phi) + D_scf(pba,phi)*(a*a*3.0*rho_idm - phi_prime*phi_prime));
@@ -3503,12 +3548,10 @@ double B1_scf(
                 double a,
                 double * pvecback) { //B1 in delta Q used in the perturbation module
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return (1./2.)*a*a*dC_scf(pba,phi);
   }
   return (1./2.)*a*a*dC_scf(pba,phi) - 3.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi)*phi_prime - 
@@ -3526,12 +3569,10 @@ double B2_scf(
                 double a,
                 double * pvecback) { //B2 in delta Q used in the perturbation module
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return -(1./2.)*D_scf(pba,phi)*phi_prime;
@@ -3546,12 +3587,10 @@ double B3_scf(
                 double a,
                 double * pvecback) { //B2 in delta Q used in the perturbation module
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return -3.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi) - 2.*D_scf(pba,phi)*phi_prime*(dC_scf(pba,phi)/C_scf(pba,phi) +
@@ -3568,12 +3607,10 @@ double B4_scf(
                 double a,
                 double * pvecback) { //B2 in delta Q used in the perturbation module
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return (1./2.)*a*a*ddC_scf(pba,phi) + Q_scf(pba,phi,phi_prime,rho_idm,a,pvecback)*a*a*dC_scf(pba,phi)/(3.0*rho_idm);
   }
   return (1./2.)*a*a*ddC_scf(pba,phi) - a*a*D_scf(pba,phi)*ddV_scf(pba,phi) - a*a*dD_scf(pba,phi)*dV_scf(pba,phi) - 
@@ -3592,12 +3629,10 @@ double B5_scf(
                 double a,
                 double * pvecback) { //B2 in delta Q used in the perturbation module
 
-  if ((pba->scf_coupling == scf_coupling_none) ||
-      (pba->scf_coupling == scf_coupling_entropy) ||
-      (pba->scf_coupling == scf_coupling_momentum)) {
+  if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->scf_coupling == scf_coupling_conformal) {
+  if (pba->has_scf_disformal == _FALSE_) {
     return 0.0;
   }
   return 6.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi)*phi_prime + 

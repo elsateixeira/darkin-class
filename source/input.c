@@ -537,7 +537,9 @@ int input_shooting(struct file_content * pfc,
                                        "Omega_ini_dcdm",
                                        "omega_ini_dcdm",
                                        "Omega_idm",             /* ET: Added initial condition for idm shooting */
-                                       "omega_idm"};            /* ET: Added initial condition for idm shooting */
+                                       "omega_idm",             /* ET: Added initial condition for idm shooting */
+                                       "Omega_qcdm",            /* ET: initial condition for scalar-field coupled qcdm shooting */
+                                       "omega_qcdm"};           /* ET: initial condition for scalar-field coupled qcdm shooting */
 
   /* array of corresponding parameters that must be adjusted in order to meet the target (= unknown parameters) */
   char * const unknown_namestrings[] = {"h",                        /* unknown param for target '100*theta_s' */
@@ -549,7 +551,9 @@ int input_shooting(struct file_content * pfc,
                                         "Omega_dcdmdr",             /* unknown param for target 'Omega_ini_dcdm' */
                                         "omega_dcdmdr",             /* unknown param for target 'omega_ini_dcdm' */
                                         "Omega_ini_idm",             /* ET: unknown param for target 'Omega_idm' */
-                                        "omega_ini_idm"};            /* ET: unknown param for target 'omega_idm' */
+                                        "omega_ini_idm",             /* ET: unknown param for target 'omega_idm' */
+                                        "Omega_ini_qcdm",            /* ET: unknown param for target 'Omega_qcdm' */
+                                        "omega_ini_qcdm"};           /* ET: unknown param for target 'omega_qcdm' */
 
   /* for each target, module up to which we need to run CLASS in order
      to compute the targetted quantities (not running the whole code
@@ -563,7 +567,9 @@ int input_shooting(struct file_content * pfc,
                                         cs_background,     /* computation stage for target 'Omega_ini_dcdm' */
                                         cs_background,     /* computation stage for target 'omega_ini_dcdm' */
                                         cs_background,     /* ET: computation stage for target 'Omega_idm' */
-                                        cs_background};    /* ET: computation stage for target 'omega_idm' */
+                                        cs_background,     /* ET: computation stage for target 'omega_idm' */
+                                        cs_background,     /* ET: computation stage for target 'Omega_qcdm' */
+                                        cs_background};    /* ET: computation stage for target 'omega_qcdm' */
 
   struct fzerofun_workspace fzw;
 
@@ -877,6 +883,8 @@ int input_needs_shooting_for_target(struct file_content * pfc,
                                     double target_value,
                                     int * needs_shooting,
                                     ErrorMsg errmsg){
+  char string1[_ARGUMENT_LENGTH_MAX_];
+  int flag1, flag2;
 
   *needs_shooting = _TRUE_;
   switch (target_name){
@@ -885,11 +893,54 @@ int input_needs_shooting_for_target(struct file_content * pfc,
   case Omega_scf:
   case Omega_ini_dcdm:
   case omega_ini_dcdm:
-  case Omega_idm: /* ET: Added cdm cases here */
-  case omega_idm: /* ET: Added cdm cases here */
     /* Check that Omega's or omega's are nonzero: */
     if (target_value == 0.)
       *needs_shooting = _FALSE_;
+    break;
+  case Omega_idm:
+  case omega_idm:
+    /* ET: vanilla idm has no scalar-field background energy transfer. */
+    *needs_shooting = _FALSE_;
+    break;
+  case Omega_qcdm:
+  case omega_qcdm:
+    /* ET: qcdm only needs shooting when the Q-sector changes its background density. */
+    if (target_value == 0.) {
+      *needs_shooting = _FALSE_;
+    }
+    else {
+      int q_sector_requested = _FALSE_;
+      class_call(parser_read_string(pfc,"scf_coupling_type",&string1,&flag1,errmsg),
+                 errmsg,
+                 errmsg);
+      if ((flag1 == _TRUE_) &&
+          ((strstr(string1,"conformal") != NULL) ||
+           (strstr(string1,"CONFORMAL") != NULL) ||
+           (strstr(string1,"disformal") != NULL) ||
+           (strstr(string1,"DISFORMAL") != NULL) ||
+           (strstr(string1,"mixed") != NULL) ||
+           (strstr(string1,"MIXED") != NULL))) {
+        q_sector_requested = _TRUE_;
+      }
+      class_call(parser_read_string(pfc,"scf_use_conformal",&string1,&flag2,errmsg),
+                 errmsg,
+                 errmsg);
+      if ((flag2 == _TRUE_) && (string_begins_with(string1,'y') || string_begins_with(string1,'Y'))) {
+        q_sector_requested = _TRUE_;
+      }
+      class_call(parser_read_string(pfc,"scf_use_disformal",&string1,&flag2,errmsg),
+                 errmsg,
+                 errmsg);
+      if ((flag2 == _TRUE_) && (string_begins_with(string1,'y') || string_begins_with(string1,'Y'))) {
+        q_sector_requested = _TRUE_;
+      }
+      if (q_sector_requested == _TRUE_) {
+        *needs_shooting = _TRUE_;
+      }
+      else {
+        *needs_shooting = _FALSE_;
+      }
+    }
     break;
   default:
     /* Default is no additional checks */
@@ -1211,7 +1262,7 @@ int input_get_guess(double *xguess,
       dxdy[index_guess] = 1.;
       break;
     case Omega_dcdmdr:
-      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+ba.Omega0_dcdmdr+ba.Omega0_b;
+      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+ba.Omega0_qcdm+ba.Omega0_dcdmdr+ba.Omega0_b;
       /* *
        * This formula is exact in a Matter + Lambda Universe, but only for Omega_dcdm,
        * not the combined.
@@ -1230,7 +1281,7 @@ int input_get_guess(double *xguess,
       dxdy[index_guess] = 1./a_decay;
       break;
     case omega_dcdmdr:
-      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+ba.Omega0_dcdmdr+ba.Omega0_b;
+      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+ba.Omega0_qcdm+ba.Omega0_dcdmdr+ba.Omega0_b;
       gamma = ba.Gamma_dcdm/ba.H0;
       if (gamma < 1)
         a_decay = 1.0;
@@ -1285,7 +1336,7 @@ int input_get_guess(double *xguess,
       /* This works since correspondence is Omega_ini_dcdm -> Omega_dcdmdr and
          omega_ini_dcdm -> omega_dcdmdr */
       Omega0_dcdmdr *=pfzw->target_value[index_guess];
-      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+Omega0_dcdmdr+ba.Omega0_b;
+      Omega_M = ba.Omega0_cdm+ba.Omega0_idm+ba.Omega0_qcdm+Omega0_dcdmdr+ba.Omega0_b;
       gamma = ba.Gamma_dcdm/ba.H0;
       if (gamma < 1)
         a_decay = 1.0;
@@ -1306,6 +1357,14 @@ int input_get_guess(double *xguess,
       xguess[index_guess] = pfzw->target_value[index_guess]/ba.h/ba.h;
       dxdy[index_guess] = 0.1;//1./ba.h/ba.h;
       /** printf("x = Omega_ini_guess = %g, dxdy = %g\n",xguess[index_guess],dxdy[index_guess]); */
+      break;
+    case Omega_qcdm:
+      xguess[index_guess] = pfzw->target_value[index_guess];
+      dxdy[index_guess] = 1.0;
+      break;
+    case omega_qcdm:
+      xguess[index_guess] = pfzw->target_value[index_guess]/ba.h/ba.h;
+      dxdy[index_guess] = 0.1;
       break;
     case sigma8:
       /* Assume linear relationship between A_s and sigma8 and fix coefficient
@@ -1370,7 +1429,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
   struct output op;           /* for output files */
 
   int i;
-  double rho_dcdm_today, rho_dr_today, rho_idm_today; /* ET: added rho_idm_today */
+  double rho_dcdm_today, rho_dr_today, rho_idm_today, rho_qcdm_today; /* ET: added coupled-DM densities */
   struct fzerofun_workspace * pfzw;
   int input_verbose;
   int flag;
@@ -1540,6 +1599,15 @@ int input_try_unknown_parameters(double * unknown_parameter,
       rho_idm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_idm];
       output[i] = (rho_idm_today)/(ba.H0*ba.H0)-pfzw->target_value[i]/ba.h/ba.h;
       /** printf("output[%i] = %.5g. target_value = %e.\n",i,output[i],pfzw->target_value[i]/ba.h/ba.h); */
+      break;
+    /* ET: Added cases for qcdm shooting */
+    case Omega_qcdm:
+      rho_qcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_qcdm];
+      output[i] = (rho_qcdm_today)/(ba.H0*ba.H0)-pfzw->target_value[i];
+      break;
+    case omega_qcdm:
+      rho_qcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_qcdm];
+      output[i] = (rho_qcdm_today)/(ba.H0*ba.H0)-pfzw->target_value[i]/ba.h/ba.h;
       break;
     case sigma8:
       output[i] = fo.sigma8[fo.index_pk_m];
@@ -2598,6 +2666,41 @@ int input_read_parameters_species(struct file_content * pfc,
   if (flag2 == _TRUE_)
     pba->Omega_ini_idm = param2/pba->h/pba->h;
 
+  /** 4.3) Omega_0_qcdm (dark matter coupled only to scalar field) */
+  class_call(parser_read_double(pfc,"Omega_qcdm",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  class_call(parser_read_double(pfc,"omega_qcdm",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
+  class_test(((flag1 == _TRUE_) && (flag2 == _TRUE_)),
+             errmsg,
+             "You can only enter one of 'Omega_qcdm' or 'omega_qcdm'.");
+  if (flag1 == _TRUE_) {
+    pba->Omega0_qcdm = param1;
+    has_cdm_userdefined = _TRUE_;
+  }
+  if (flag2 == _TRUE_) {
+    pba->Omega0_qcdm = param2/pba->h/pba->h;
+    has_cdm_userdefined = _TRUE_;
+  }
+  class_test(pba->Omega0_qcdm<0,errmsg, "You cannot set the scalar-field interacting dark matter density to negative values.");
+
+  /* ET: Read Omega_ini_qcdm or omega_ini_qcdm for Q-sector background shooting */
+  class_call(parser_read_double(pfc,"Omega_ini_qcdm",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  class_call(parser_read_double(pfc,"omega_ini_qcdm",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
+  class_test(((flag1 == _TRUE_) && (flag2 == _TRUE_)),
+             errmsg,
+             "In input file, you can only enter one of Omega_ini_qcdm or omega_ini_qcdm, choose one");
+  if (flag1 == _TRUE_)
+    pba->Omega_ini_qcdm = param1;
+  if (flag2 == _TRUE_)
+    pba->Omega_ini_qcdm = param2/pba->h/pba->h;
+
   /** 4) (Second part) Omega_0_m (total non-relativistic) */
   class_call(parser_read_double(pfc,"Omega_m",&param1,&flag1,errmsg),
              errmsg,
@@ -3311,6 +3414,7 @@ int input_read_parameters_species(struct file_content * pfc,
   Omega_tot += pba->Omega0_ur;
   Omega_tot += pba->Omega0_cdm;
   Omega_tot += pba->Omega0_idm;
+  Omega_tot += pba->Omega0_qcdm;
   Omega_tot += pba->Omega0_dcdmdr;
   Omega_tot += pba->Omega0_idr;
   Omega_tot += pba->Omega0_ncdm_tot;
@@ -3417,6 +3521,8 @@ int input_read_parameters_species(struct file_content * pfc,
     int flag_scf_potential = _FALSE_;
     int flag_scf_coupling = _FALSE_;
     int flag_scf_shoot_target = _FALSE_;
+    int flag_scf_use_conformal = _FALSE_, flag_scf_use_disformal = _FALSE_;
+    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_;
     int flag_V0 = _FALSE_, flag_lambda = _FALSE_;
     int flag_V0_2 = _FALSE_, flag_lambda_2 = _FALSE_;
     int flag_C0 = _FALSE_, flag_beta = _FALSE_, flag_alpha = _FALSE_, flag_D0 = _FALSE_;
@@ -3464,25 +3570,125 @@ int input_read_parameters_species(struct file_content * pfc,
       }
       else if ((strstr(string1,"conformal") != NULL) || (strstr(string1,"CONFORMAL") != NULL)) {
         pba->scf_coupling = scf_coupling_conformal;
+        pba->scf_use_conformal = _TRUE_;
       }
       else if ((strstr(string1,"disformal") != NULL) || (strstr(string1,"DISFORMAL") != NULL)) {
         pba->scf_coupling = scf_coupling_disformal;
+        pba->scf_use_disformal = _TRUE_;
       }
       else if ((strstr(string1,"mixed") != NULL) || (strstr(string1,"MIXED") != NULL)) {
         pba->scf_coupling = scf_coupling_mixed;
+        pba->scf_use_conformal = _TRUE_;
+        pba->scf_use_disformal = _TRUE_;
       }
       else if ((strstr(string1,"entropy") != NULL) || (strstr(string1,"ENTROPY") != NULL)) {
         pba->scf_coupling = scf_coupling_entropy;
+        pba->scf_use_entropy = _TRUE_;
       }
       else if ((strstr(string1,"momentum") != NULL) || (strstr(string1,"MOMENTUM") != NULL)) {
         pba->scf_coupling = scf_coupling_momentum;
+        pba->scf_use_momentum = _TRUE_;
       }
       else {
         class_stop(errmsg, "scf_coupling_type has to be none|conformal|disformal|mixed|entropy|momentum, but you entered %s.", string1);
       }
     }
+    class_read_flag("scf_allow_multiple_couplings",pba->scf_allow_multiple_couplings);
+    class_call(parser_read_string(pfc,
+                                  "scf_use_conformal",
+                                  &string1,
+                                  &flag_scf_use_conformal,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_use_conformal == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_conformal = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_conformal = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_conformal'.", string1);
+    }
+    class_call(parser_read_string(pfc,
+                                  "scf_use_disformal",
+                                  &string1,
+                                  &flag_scf_use_disformal,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_use_disformal == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_disformal = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_disformal = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_disformal'.", string1);
+    }
+    class_call(parser_read_string(pfc,
+                                  "scf_use_entropy",
+                                  &string1,
+                                  &flag_scf_use_entropy,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_use_entropy == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_entropy = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_entropy = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_entropy'.", string1);
+    }
+    class_call(parser_read_string(pfc,
+                                  "scf_use_momentum",
+                                  &string1,
+                                  &flag_scf_use_momentum,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_use_momentum == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_momentum = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_momentum = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_momentum'.", string1);
+    }
+    {
+      int scf_q_sector_requested = ((pba->scf_use_conformal == _TRUE_) || (pba->scf_use_disformal == _TRUE_)) ? 1 : 0;
+      int scf_sector_count = scf_q_sector_requested
+        + ((pba->scf_use_entropy == _TRUE_) ? 1 : 0)
+        + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0);
+
+      class_test((scf_sector_count > 1) && (pba->scf_allow_multiple_couplings == _FALSE_),
+                 errmsg,
+                 "Multiple scalar-field coupling sectors requested. Set scf_allow_multiple_couplings = yes to combine Q-sector, entropy, and/or momentum terms.");
+
+      if (flag_scf_coupling == _FALSE_) {
+        if ((pba->scf_use_conformal == _TRUE_) && (pba->scf_use_disformal == _TRUE_) &&
+            (pba->scf_use_entropy == _FALSE_) && (pba->scf_use_momentum == _FALSE_)) {
+          pba->scf_coupling = scf_coupling_mixed;
+        }
+        else if ((pba->scf_use_conformal == _TRUE_) &&
+                 (pba->scf_use_disformal == _FALSE_) &&
+                 (pba->scf_use_entropy == _FALSE_) &&
+                 (pba->scf_use_momentum == _FALSE_)) {
+          pba->scf_coupling = scf_coupling_conformal;
+        }
+        else if ((pba->scf_use_disformal == _TRUE_) &&
+                 (pba->scf_use_conformal == _FALSE_) &&
+                 (pba->scf_use_entropy == _FALSE_) &&
+                 (pba->scf_use_momentum == _FALSE_)) {
+          pba->scf_coupling = scf_coupling_disformal;
+        }
+        else if ((pba->scf_use_entropy == _TRUE_) &&
+                 (pba->scf_use_conformal == _FALSE_) &&
+                 (pba->scf_use_disformal == _FALSE_) &&
+                 (pba->scf_use_momentum == _FALSE_)) {
+          pba->scf_coupling = scf_coupling_entropy;
+        }
+        else if ((pba->scf_use_momentum == _TRUE_) &&
+                 (pba->scf_use_conformal == _FALSE_) &&
+                 (pba->scf_use_disformal == _FALSE_) &&
+                 (pba->scf_use_entropy == _FALSE_)) {
+          pba->scf_coupling = scf_coupling_momentum;
+        }
+      }
+    }
     /* ET: if there is coupling, avoid exactly zero CDM to prevent numerical issues in synchronous gauge */
-    if ((pba->scf_coupling != scf_coupling_none) && (pba->Omega0_cdm == 0.)) {
+    if (((pba->scf_use_conformal == _TRUE_) ||
+         (pba->scf_use_disformal == _TRUE_) ||
+         (pba->scf_use_entropy == _TRUE_) ||
+         (pba->scf_use_momentum == _TRUE_)) &&
+        (pba->Omega0_cdm == 0.)) {
       pba->Omega0_cdm = ppr->Omega0_cdm_min_synchronous;
       if (input_verbose > 0) {
         printf("Warning: scf_coupling_type set with Omega_cdm=0; setting Omega_cdm to %e to avoid issues in the synchronous gauge.\n",
@@ -3490,9 +3696,12 @@ int input_read_parameters_species(struct file_content * pfc,
       }
     }
     if ((input_verbose > 0) &&
-        (pba->scf_coupling != scf_coupling_none) &&
+        ((pba->scf_use_conformal == _TRUE_) ||
+         (pba->scf_use_disformal == _TRUE_) ||
+         (pba->scf_use_entropy == _TRUE_) ||
+         (pba->scf_use_momentum == _TRUE_)) &&
         (pth->cross_idm_b > 0. || pth->u_idm_g > 0. || pth->a_idm_dr > 0.)) {
-      printf("Warning: multiple IDM couplings enabled (SCF + baryons/photons/DR). Equations include all couplings; please verify model assumptions.\n");
+      printf("Warning: scalar-field qcdm couplings and vanilla IDM baryon/photon/DR couplings are both enabled; please verify model assumptions.\n");
     }
 
     /** 8.b.2) ET: Shooting target (for explicit scf_* inputs) */
@@ -3693,7 +3902,7 @@ int input_read_parameters_species(struct file_content * pfc,
         if (pba->scf_parameters_size > 7) pba->D0_scf = pba->scf_parameters[7];
       }
       /* ET: optional momentum-coupling entry in scf_parameters (before entropy block) */
-      if ((pba->scf_coupling == scf_coupling_momentum) &&
+      if ((pba->scf_use_momentum == _TRUE_) &&
           (flag_gamma0 == _FALSE_) &&
           (flag_gamma_legacy == _FALSE_) &&
           (flag_log10minus_gamma0 == _FALSE_) &&
@@ -3769,24 +3978,24 @@ int input_read_parameters_species(struct file_content * pfc,
     }
 
     /** 8.b.6) ET: Coupling parameter checks: Add warning instead of error */
-    if ((pba->scf_coupling == scf_coupling_conformal) || (pba->scf_coupling == scf_coupling_mixed)) {
+    if (pba->scf_use_conformal == _TRUE_) {
       if (pba->beta_scf == 0. && pba->C0_scf == 0.) {
         if (pba->background_verbose > 1) {
-          printf("Warning: scf_coupling_type requires scf_C0 (or scf_parameters[2]/[4]) and/or scf_beta (or scf_parameters[3]/[5]) to be nonzero.\n");
+          printf("Warning: conformal scalar-field coupling requested but scf_C0/scf_beta are both zero.\n");
         }
       }
     }
-    if ((pba->scf_coupling == scf_coupling_disformal) || (pba->scf_coupling == scf_coupling_mixed)) {
+    if (pba->scf_use_disformal == _TRUE_) {
       if (pba->D0_scf == 0.) {
         if (pba->background_verbose > 1) {
-          printf("Warning: scf_coupling_type requires scf_D0 (or scf_parameters[5]/[7]) and/or scf_alpha (or scf_parameters[4]/[6]) to be non-zero.\n");
+          printf("Warning: disformal scalar-field coupling requested but scf_D0 is zero.\n");
         }
       }
     }
-    if (pba->scf_coupling == scf_coupling_momentum) {
+    if (pba->scf_use_momentum == _TRUE_) {
       if (pba->scf_gamma0 == 0.) {
         if (pba->background_verbose > 1) {
-          printf("Warning: scf_coupling_type=momentum but scf_gamma0 is zero.\n");
+          printf("Warning: momentum scalar-field coupling requested but scf_gamma0 is zero.\n");
         }
       }
       class_test(fabs(1.-2.*pba->scf_gamma0) < 1e-12,
@@ -6337,6 +6546,9 @@ int input_default_params(struct background *pba,
   /** 7.2) Interacting Dark Matter */
   /** 7.2.1.a) Current factional density of idm */
   pba->Omega0_idm = 0;
+  pba->Omega0_qcdm = 0.;
+  pba->Omega_ini_qcdm = 0.;
+  pba->omega_ini_qcdm = 0.;
   /** 7.2.1.a) Mass of idm in eV*/
   pth->m_idm = 1.e9;
   /** 7.2.2) Current fractional density of idr */
@@ -6370,7 +6582,7 @@ int input_default_params(struct background *pba,
   /** 9) Dark energy contributions */
   pba->Omega0_fld = 0.;
   pba->Omega0_scf = 0.;
-  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr - pba->Omega0_idr -pba->Omega0_idm;
+  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr - pba->Omega0_idr -pba->Omega0_idm -pba->Omega0_qcdm;
   /** 8.a) Omega fluid */
   /** 8.a.1) PPF approximation */
   pba->use_ppf = _TRUE_;
@@ -6390,8 +6602,15 @@ int input_default_params(struct background *pba,
   pba->use_scf_parameters = _TRUE_;
   pba->scf_potential = scf_potential_exp;
   pba->scf_coupling = scf_coupling_none;
+  pba->scf_allow_multiple_couplings = _FALSE_;
+  pba->scf_use_conformal = _FALSE_;
+  pba->scf_use_disformal = _FALSE_;
+  pba->scf_use_entropy = _FALSE_;
+  pba->scf_use_momentum = _FALSE_;
   pba->has_idm_de = _FALSE_;
   pba->has_idm_de_q = _FALSE_;
+  pba->has_qcdm_de = _FALSE_;
+  pba->has_qcdm_de_q = _FALSE_;
   pba->has_scf_conformal = _FALSE_;
   pba->has_scf_disformal = _FALSE_;
   pba->has_scf_entropy = _FALSE_;

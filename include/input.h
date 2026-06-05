@@ -203,9 +203,9 @@
  * For shooting method: definition of the possible targets
  */
 /* ET: Added here omega_idm and Omega_idm */
-enum target_names {theta_s, theta_s_100, Neff, Omega_dcdmdr, omega_dcdmdr, Omega_scf, Omega_ini_dcdm, omega_ini_dcdm, Omega_idm, omega_idm, sigma8, S8};
+enum target_names {theta_s, theta_s_100, Neff, Omega_dcdmdr, omega_dcdmdr, Omega_scf, Omega_ini_dcdm, omega_ini_dcdm, Omega_idm, omega_idm, Omega_qcdm, omega_qcdm, sigma8, S8};
 /* Important: Keep this number equal to the number of target_names (except sigma8, S8), and keep sigma8, S8 at the very end */
-#define _NUM_TARGETS_ 10 // ET: Changed the number of targets 
+#define _NUM_TARGETS_ 12 // ET: Changed the number of targets 
 
 /* Until which class stage is being computed? Pretty much fixed list, don't change. */
 enum computation_stage {cs_background, cs_thermodynamics, cs_perturbations, cs_primordial, cs_nonlinear, cs_transfer, cs_spectra};

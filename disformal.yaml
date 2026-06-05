@@ -174,7 +174,7 @@ params:
     latex: \Omega_\mathrm{b} h^2
     renames:
     - omegabh2
-  omega_idm:
+  omega_qcdm:
     prior:
       min: 0.001
       max: 0.99
