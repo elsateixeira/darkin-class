@@ -17,6 +17,9 @@ enum equation_of_state {CLP,EDE};
 /** ET: scalar field potential types */
 enum scf_potential_type {scf_potential_exp, scf_potential_double_exp};
 
+/** ET: scalar field conformal coupling function types */
+enum scf_conformal_form_type {scf_conformal_exp, scf_conformal_matter_exp};
+
 /** ET: scalar field coupling types */
 enum scf_coupling_type {
   scf_coupling_none,
@@ -154,8 +157,10 @@ struct background
   int scf_parameters_size; /**< size of scf_parameters */
   short use_scf_parameters; /**< ET: whether to use scf_parameters rather than explicit scf_* inputs */
   enum scf_potential_type scf_potential; /**< ET: scalar field potential type */
+  enum scf_conformal_form_type scf_conformal_form; /**< ET: conformal coupling function type */
   enum scf_coupling_type scf_coupling; /**< ET: scalar field coupling type */
   enum scf_shooting_target_type scf_shooting_target; /**< ET: shooting target when using explicit scf_* inputs */
+  short scf_ic_from_today; /**< ET: reconstruct scalar/qcdm initial conditions from today boundary values */
   short scf_allow_multiple_couplings; /**< ET: allow more than one scalar-field coupling sector */
   short scf_use_conformal; /**< ET: requested conformal scalar-field coupling */
   short scf_use_disformal; /**< ET: requested disformal scalar-field coupling */
@@ -177,6 +182,9 @@ struct background
   double C0_scf;        /**< ET: conformal coupling amplitude */
   double alpha_scf;     /**< ET: disformal coupling strength */
   double D0_scf;        /**< ET: disformal coupling scale (in meV^-1) */
+  double phi_today_scf; /**< ET: scalar field value today for reconstructed ICs */
+  double w_today_scf; /**< ET: scalar field equation of state today for reconstructed ICs */
+  double phi_prime_today_sign_scf; /**< ET: sign of phi' today for reconstructed ICs */
   double scf_gamma0;      /**< ET: momentum-coupling strength (Type-3 gamma) */
   /* ET: entropy-coupling/source parameters (coupled through QCDM) */
   double g0_scf;        /**< entropy force coefficient entering g_scf(phi) */

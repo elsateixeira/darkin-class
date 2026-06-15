@@ -29,6 +29,21 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
+  if ((op.write_background == _TRUE_) &&
+      (op.write_thermodynamics == _FALSE_) &&
+      (op.write_primordial == _FALSE_) &&
+      (pt.has_perturbations == _FALSE_)) {
+    if (output_init(&ba,&th,&pt,&pm,&tr,&hr,&fo,&le,&sd,&op) == _FAILURE_) {
+      printf("\n\nError in output_init \n=>%s\n",op.error_message);
+      return _FAILURE_;
+    }
+    if (background_free(&ba) == _FAILURE_) {
+      printf("\n\nError in background_free \n=>%s\n",ba.error_message);
+      return _FAILURE_;
+    }
+    return _SUCCESS_;
+  }
+
   if (thermodynamics_init(&pr,&ba,&th) == _FAILURE_) {
     printf("\n\nError in thermodynamics_init \n=>%s\n",th.error_message);
     return _FAILURE_;
