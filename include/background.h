@@ -166,7 +166,7 @@ struct background
   short scf_use_disformal; /**< ET: requested disformal scalar-field coupling */
   short scf_use_entropy; /**< ET: requested entropy scalar-field coupling */
   short scf_use_momentum; /**< ET: requested momentum scalar-field coupling */
-  short scf_use_radiation; /**< ET: requested scalar-field coupling to dark radiation */
+  short scf_interacting_radiation; /**< ET: requested scalar-field coupling to dark radiation */
   short has_idm_de; /**< ET: legacy IDM/SCF coupling flag; kept off when using qcdm */
   short has_idm_de_q; /**< ET: legacy Q_scf-sector coupling flag; kept off when using qcdm */
   short has_qcdm_de; /**< ET: coupling between qcdm and scalar field */

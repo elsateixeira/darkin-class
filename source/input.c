@@ -3600,7 +3600,7 @@ int input_read_parameters_species(struct file_content * pfc,
     int flag_scf_shoot_target = _FALSE_;
     int flag_scf_ic_from_today = _FALSE_;
     int flag_scf_use_conformal = _FALSE_, flag_scf_use_disformal = _FALSE_;
-    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_, flag_scf_use_radiation = _FALSE_;
+    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_, flag_scf_interacting_radiation = _FALSE_;
     int flag_V0 = _FALSE_, flag_lambda = _FALSE_;
     int flag_V0_2 = _FALSE_, flag_lambda_2 = _FALSE_;
     int flag_C0 = _FALSE_, flag_beta = _FALSE_, flag_alpha = _FALSE_, flag_D0 = _FALSE_;
@@ -3756,23 +3756,23 @@ int input_read_parameters_species(struct file_content * pfc,
       else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_momentum'.", string1);
     }
     class_call(parser_read_string(pfc,
-                                  "scf_use_radiation",
+                                  "scf_interacting_radiation",
                                   &string1,
-                                  &flag_scf_use_radiation,
+                                  &flag_scf_interacting_radiation,
                                   errmsg),
                errmsg,
                errmsg);
-    if (flag_scf_use_radiation == _TRUE_) {
-      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_radiation = _TRUE_;
-      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_radiation = _FALSE_;
-      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_radiation'.", string1);
+    if (flag_scf_interacting_radiation == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_interacting_radiation = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_interacting_radiation = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_interacting_radiation'.", string1);
     }
     {
       int scf_q_sector_requested = ((pba->scf_use_conformal == _TRUE_) || (pba->scf_use_disformal == _TRUE_)) ? 1 : 0;
       int scf_sector_count = scf_q_sector_requested
         + ((pba->scf_use_entropy == _TRUE_) ? 1 : 0)
         + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0)
-        + ((pba->scf_use_radiation == _TRUE_) ? 1 : 0);
+        + ((pba->scf_interacting_radiation == _TRUE_) ? 1 : 0);
 
       class_test((scf_sector_count > 1) && (pba->scf_allow_multiple_couplings == _FALSE_),
                  errmsg,
@@ -6768,7 +6768,7 @@ int input_default_params(struct background *pba,
   pba->scf_use_disformal = _FALSE_;
   pba->scf_use_entropy = _FALSE_;
   pba->scf_use_momentum = _FALSE_;
-  pba->scf_use_radiation = _FALSE_;
+  pba->scf_interacting_radiation = _FALSE_;
   pba->has_idm_de = _FALSE_;
   pba->has_idm_de_q = _FALSE_;
   pba->has_qcdm_de = _FALSE_;

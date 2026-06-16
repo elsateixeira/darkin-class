@@ -1123,7 +1123,7 @@ int background_indices(
      (pba->scf_use_entropy == _TRUE_) ||
      (pba->scf_use_momentum == _TRUE_));
   pba->has_scf_radiation = (pba->has_scf == _TRUE_) && (pba->Omega0_idr != 0.) &&
-    (pba->scf_use_radiation == _TRUE_);
+    (pba->scf_interacting_radiation == _TRUE_);
   pba->has_scf_conformal = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_conformal == _TRUE_);
   pba->has_scf_disformal = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_disformal == _TRUE_);
   pba->has_scf_entropy = (pba->has_qcdm_de == _TRUE_) && (pba->scf_use_entropy == _TRUE_);

@@ -9290,9 +9290,12 @@ int perturbations_derivs(double tau,
   double theta_qcdm_mom_drho = 0.;
   double theta_qcdm_mom_flux = 0.;
   double theta_qcdm_mom_drag = 0.;
+  short use_radiation = _FALSE_;
   double g_scf_bg = 0., dg_scf_bg = 0., h_scf_bg = 0.;
   double As_scf_bg = 0., ns_scf_bg = 0.;
   double kp_scf_bg = 1., kc_scf_bg = 1., pc_scf_bg = 1.;
+  double lambda_r_scf = 0., lambda2_r_scf = 0.;
+  double Q_r_scf = 0., delta_Q_r_scf = 0.;
 
   /** - rename the fields of the input structure (just to avoid heavy notations) */
 
@@ -9356,8 +9359,15 @@ int perturbations_derivs(double tau,
   use_entropy = pba->has_scf_entropy;
   use_momentum = pba->has_scf_momentum;
   use_q_sector = pba->has_qcdm_de_q;
+  use_radiation = pba->has_scf_radiation;
   /* ET: Added here extra delta_Q_scf */
   double delta_Q_scf = 0.;
+  if (use_radiation == _TRUE_) {
+    lambda_r_scf = pvecback[pba->index_bg_dA_r_scf]/pvecback[pba->index_bg_A_r_scf];
+    lambda2_r_scf = pvecback[pba->index_bg_ddA_r_scf]/pvecback[pba->index_bg_A_r_scf]
+      - lambda_r_scf*lambda_r_scf;
+    Q_r_scf = -3.0*pvecback[pba->index_bg_rho_idr]*lambda_r_scf;
+  }
   /* ET: compute entropy source profile delta_s(k) */
   if ((use_entropy == _TRUE_) && (pba->has_scf == _TRUE_)) {
     g_scf_bg = pvecback[pba->index_bg_g_scf];
@@ -9969,6 +9979,11 @@ int perturbations_derivs(double tau,
       if (ppw->approx[ppw->index_ap_rsa_idr] == (int)rsa_idr_off) {
 
         dy[pv->index_pt_delta_idr] = -4./3.*(theta_idr + metric_continuity);
+        if (use_radiation == _TRUE_) {
+          dy[pv->index_pt_delta_idr] +=
+            lambda_r_scf*y[pv->index_pt_phi_prime_scf]
+            + lambda2_r_scf*pvecback[pba->index_bg_phi_prime_scf]*y[pv->index_pt_phi_scf];
+        }
 
         if (ppw->approx[ppw->index_ap_tca_idm_dr] == (int)tca_idm_dr_off) {
 
@@ -9980,6 +9995,12 @@ int perturbations_derivs(double tau,
 
           if (pth->has_idm_dr == _TRUE_)
             dy[pv->index_pt_theta_idr] += dmu_idm_dr*(y[pv->index_pt_theta_idm]-y[pv->index_pt_theta_idr]);
+
+          if (use_radiation == _TRUE_) {
+            dy[pv->index_pt_theta_idr] +=
+              0.75*lambda_r_scf*k2*y[pv->index_pt_phi_scf]
+              - lambda_r_scf*pvecback[pba->index_bg_phi_prime_scf]*theta_idr;
+          }
 
           if (ppt->idr_nature == idr_free_streaming){
 
@@ -10011,6 +10032,11 @@ int perturbations_derivs(double tau,
         }
         else{
           dy[pv->index_pt_theta_idr] = ppw->theta_idm_prime - tca_slip_idm_dr;
+          if (use_radiation == _TRUE_) {
+            dy[pv->index_pt_theta_idr] +=
+              0.75*lambda_r_scf*k2*y[pv->index_pt_phi_scf]
+              - lambda_r_scf*pvecback[pba->index_bg_phi_prime_scf]*theta_idr;
+          }
         }
       }
     }
@@ -10124,22 +10150,30 @@ int perturbations_derivs(double tau,
       /** - ----> field value */
 
       dy[pv->index_pt_phi_scf] = y[pv->index_pt_phi_prime_scf];
+      if (use_radiation == _TRUE_) {
+        delta_Q_r_scf =
+          Q_r_scf*delta_idr
+          - 3.0*pvecback[pba->index_bg_rho_idr]*lambda2_r_scf*y[pv->index_pt_phi_scf];
+      }
 
       /** - ----> Klein Gordon equation */
 
       if (use_momentum == _TRUE_) {
         if (fabs(one_minus_ddgamma_scf) > 1e-12) {
           double kg_term_friction = -2.*a_prime_over_a*y[pv->index_pt_phi_prime_scf];
+          double kg_Q_background =
+            ((use_q_sector == _TRUE_) ? pvecback[pba->index_bg_Q_scf] : 0.)
+            + ((use_radiation == _TRUE_) ? Q_r_scf : 0.);
           double z_dot_bg_kg =
             (3.*a_prime_over_a*(dgamma_scf(pba,scf_mom)-scf_mom)
-             + a*(pvecback[pba->index_bg_dV_scf]
-                  - ((use_q_sector == _TRUE_) ? pvecback[pba->index_bg_Q_scf] : 0.)))/one_minus_ddgamma_scf;
+             + a*(pvecback[pba->index_bg_dV_scf] - kg_Q_background))/one_minus_ddgamma_scf;
           double kg_term_ddd = dddgamma_scf(pba,scf_mom)*z_dot_bg_kg*y[pv->index_pt_phi_prime_scf];
           double kg_term_metric = -metric_continuity*(pvecback[pba->index_bg_phi_prime_scf]+a*dgamma_scf(pba,scf_mom));
           double kg_term_mass = -(k2+a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf];
           double kg_term_theta = -a*dgamma_scf(pba,scf_mom)*theta_qcdm;
           double kg_term_entropy = 0.;
           double kg_term_q = 0.;
+          double kg_term_r = 0.;
           if (use_entropy == _TRUE_) {
             kg_term_entropy = -(a2*dg_scf_bg + k2*h_scf_bg)*delta_s_scf;
           }
@@ -10149,7 +10183,15 @@ int perturbations_derivs(double tau,
               kg_term_q += 2.*a2*pvecmetric[ppw->index_mt_psi]*pvecback[pba->index_bg_Q_scf];
             }
           }
-          double kg_term_source = (kg_term_ddd+kg_term_metric+kg_term_mass+kg_term_theta+kg_term_entropy+kg_term_q)/one_minus_ddgamma_scf;
+          if (use_radiation == _TRUE_) {
+            kg_term_r = a2*delta_Q_r_scf;
+            if (ppt->gauge == newtonian) {
+              kg_term_r += 2.*a2*pvecmetric[ppw->index_mt_psi]*Q_r_scf;
+            }
+          }
+          double kg_term_source =
+            (kg_term_ddd+kg_term_metric+kg_term_mass+kg_term_theta+kg_term_entropy+kg_term_q+kg_term_r)
+            /one_minus_ddgamma_scf;
           dy[pv->index_pt_phi_prime_scf] = kg_term_friction + kg_term_source;
 
           if ((ppt->perturbations_verbose > 3) && (dbg_kg_mom_count < dbg_mom_max)) {
@@ -10174,6 +10216,7 @@ int perturbations_derivs(double tau,
       else {
         double kg_term_entropy = 0.;
         double kg_term_q = 0.;
+        double kg_term_r = 0.;
 
         if (use_entropy == _TRUE_) {
           kg_term_entropy = -(a2*dg_scf_bg + k2*h_scf_bg)*delta_s_scf;
@@ -10184,6 +10227,12 @@ int perturbations_derivs(double tau,
             kg_term_q += 2.*a2*pvecmetric[ppw->index_mt_psi]*pvecback[pba->index_bg_Q_scf];
           }
         }
+        if (use_radiation == _TRUE_) {
+          kg_term_r = a2*delta_Q_r_scf;
+          if (ppt->gauge == newtonian) {
+            kg_term_r += 2.*a2*pvecmetric[ppw->index_mt_psi]*Q_r_scf;
+          }
+        }
 
         if (ppt->gauge == newtonian) {
           dy[pv->index_pt_phi_prime_scf] =
@@ -10192,7 +10241,8 @@ int perturbations_derivs(double tau,
             -(4./3.)*metric_continuity*pvecback[pba->index_bg_phi_prime_scf]
             -(k2+a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf]
             + kg_term_entropy
-            + kg_term_q;
+            + kg_term_q
+            + kg_term_r;
         }
         if (ppt->gauge == synchronous) {
           dy[pv->index_pt_phi_prime_scf] =
@@ -10200,7 +10250,8 @@ int perturbations_derivs(double tau,
             -(k2+a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf]
             -metric_continuity*pvecback[pba->index_bg_phi_prime_scf]
             + kg_term_entropy
-            + kg_term_q;
+            + kg_term_q
+            + kg_term_r;
         }
       }
     }
