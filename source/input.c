@@ -3586,6 +3586,7 @@ int input_read_parameters_species(struct file_content * pfc,
     // ET: added extra locals here instead of params
     double scf_lambda_val = 0., scf_V0_val = 1., scf_lambda_2_val = 0., scf_V0_2_val = 0.;
     double scf_C0_val = 0., scf_beta_val = 0., scf_alpha_val = 0., scf_D0_val = 0.;
+    double scf_C0_r_val = 0., scf_beta_r_val = 0.;
     double scf_gamma0_val = 0., scf_gamma_legacy_val = 0.;
     double scf_log10minus_gamma0_val = 0., scf_log10minus_gamma_legacy_val = 0.;
     double scf_g0_val = 0., scf_h0_val = 0.;
@@ -3599,10 +3600,11 @@ int input_read_parameters_species(struct file_content * pfc,
     int flag_scf_shoot_target = _FALSE_;
     int flag_scf_ic_from_today = _FALSE_;
     int flag_scf_use_conformal = _FALSE_, flag_scf_use_disformal = _FALSE_;
-    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_;
+    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_, flag_scf_use_radiation = _FALSE_;
     int flag_V0 = _FALSE_, flag_lambda = _FALSE_;
     int flag_V0_2 = _FALSE_, flag_lambda_2 = _FALSE_;
     int flag_C0 = _FALSE_, flag_beta = _FALSE_, flag_alpha = _FALSE_, flag_D0 = _FALSE_;
+    int flag_C0_r = _FALSE_, flag_beta_r = _FALSE_;
     int flag_gamma0 = _FALSE_, flag_gamma_legacy = _FALSE_, flag_log10minus_gamma0 = _FALSE_, flag_log10minus_gamma_legacy = _FALSE_;
     int flag_g0 = _FALSE_, flag_h0 = _FALSE_;
     int flag_As = _FALSE_, flag_ns = _FALSE_, flag_kp = _FALSE_, flag_kc = _FALSE_, flag_pc = _FALSE_;
@@ -3753,11 +3755,24 @@ int input_read_parameters_species(struct file_content * pfc,
       else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_momentum = _FALSE_;
       else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_momentum'.", string1);
     }
+    class_call(parser_read_string(pfc,
+                                  "scf_use_radiation",
+                                  &string1,
+                                  &flag_scf_use_radiation,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_use_radiation == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_use_radiation = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_radiation = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_radiation'.", string1);
+    }
     {
       int scf_q_sector_requested = ((pba->scf_use_conformal == _TRUE_) || (pba->scf_use_disformal == _TRUE_)) ? 1 : 0;
       int scf_sector_count = scf_q_sector_requested
         + ((pba->scf_use_entropy == _TRUE_) ? 1 : 0)
-        + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0);
+        + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0)
+        + ((pba->scf_use_radiation == _TRUE_) ? 1 : 0);
 
       class_test((scf_sector_count > 1) && (pba->scf_allow_multiple_couplings == _FALSE_),
                  errmsg,
@@ -3898,6 +3913,12 @@ int input_read_parameters_species(struct file_content * pfc,
     class_call(parser_read_double(pfc,"scf_D0",&scf_D0_val,&flag_D0,errmsg),
                errmsg,
                errmsg);
+    class_call(parser_read_double(pfc,"scf_C0_r",&scf_C0_r_val,&flag_C0_r,errmsg),
+               errmsg,
+               errmsg);
+    class_call(parser_read_double(pfc,"scf_beta_r",&scf_beta_r_val,&flag_beta_r,errmsg),
+               errmsg,
+               errmsg);
     class_call(parser_read_double(pfc,"scf_gamma0",&scf_gamma0_val,&flag_gamma0,errmsg),
                errmsg,
                errmsg);
@@ -3962,6 +3983,7 @@ int input_read_parameters_species(struct file_content * pfc,
     if (flag_phi_prime_today_sign == _TRUE_) pba->phi_prime_today_sign_scf = scf_phi_prime_today_sign_val;
     // ET: if any of the explicit parameters are set, we will ignore scf_parameters and use these instead
     flag_explicit_potential = (flag_V0 || flag_lambda || flag_V0_2 || flag_lambda_2 || flag_C0 || flag_beta || flag_alpha || flag_D0 ||
+                               flag_C0_r || flag_beta_r ||
                                flag_gamma0 || flag_gamma_legacy || flag_log10minus_gamma0 || flag_log10minus_gamma_legacy);
     flag_explicit_entropy = (flag_g0 || flag_h0 || flag_As || flag_ns || flag_kp || flag_kc || flag_pc);
     flag_explicit = (flag_explicit_potential || flag_explicit_entropy || flag_phi_ini || flag_phi_prime_ini);
@@ -4054,6 +4076,8 @@ int input_read_parameters_species(struct file_content * pfc,
       if (flag_beta == _TRUE_) pba->beta_scf = scf_beta_val;
       if (flag_alpha == _TRUE_) pba->alpha_scf = scf_alpha_val;
       if (flag_D0 == _TRUE_) pba->D0_scf = scf_D0_val;
+      if (flag_C0_r == _TRUE_) pba->C0_r_scf = scf_C0_r_val;
+      if (flag_beta_r == _TRUE_) pba->beta_r_scf = scf_beta_r_val;
       if (flag_phi_ini == _TRUE_) pba->phi_ini_scf = scf_phi_ini_val;
       if (flag_phi_prime_ini == _TRUE_) pba->phi_prime_ini_scf = scf_phi_prime_ini_val;
     }
@@ -6744,6 +6768,7 @@ int input_default_params(struct background *pba,
   pba->scf_use_disformal = _FALSE_;
   pba->scf_use_entropy = _FALSE_;
   pba->scf_use_momentum = _FALSE_;
+  pba->scf_use_radiation = _FALSE_;
   pba->has_idm_de = _FALSE_;
   pba->has_idm_de_q = _FALSE_;
   pba->has_qcdm_de = _FALSE_;
@@ -6752,6 +6777,7 @@ int input_default_params(struct background *pba,
   pba->has_scf_disformal = _FALSE_;
   pba->has_scf_entropy = _FALSE_;
   pba->has_scf_momentum = _FALSE_;
+  pba->has_scf_radiation = _FALSE_;
   pba->scf_shooting_target = scf_shoot_none;
   pba->V0_scf = 0.;
   pba->lambda_scf = 0.;
@@ -6761,6 +6787,8 @@ int input_default_params(struct background *pba,
   pba->C0_scf = 0.;
   pba->alpha_scf = 0.;
   pba->D0_scf = 0.;
+  pba->C0_r_scf = 0.;
+  pba->beta_r_scf = 0.;
   pba->phi_today_scf = 0.;
   pba->w_today_scf = -1.;
   pba->phi_prime_today_sign_scf = 1.;
