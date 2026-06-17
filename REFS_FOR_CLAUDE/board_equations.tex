@@ -1,0 +1,332 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\newcommand{\Lm}{\overline{\mathcal{L}}_{m}}
+\newcommand{\Lr}{\overline{\mathcal{L}}_{r}}
+\newcommand{\rhob}{\bar\rho}
+\newcommand{\Am}{A_{m}}
+\newcommand{\Ar}{A_{r}}
+\newcommand{\cH}{\mathcal{H}}
+\newcommand{\todo}[1]{\textcolor{red}{[#1]}}
+
+\title{DM--DE and DR--DE couplings in \texttt{darkin-class}:\\ equations to implement}
+\author{Transcribed from 2505.10410v2 + blackboard (12/06/2026)\\
+\small matter sector cross-checked against 2212.08098 (Eqs.~15--17) and 1707.07667 (Eqs.~2.18--2.19)}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\noindent Conventions: $(-,+,+,+)$, $M_p=1$, conformal time $\tau$, $\cH=a'/a$,
+$\dot\phi \equiv d\phi/dt$ (cosmic time), $\phi' \equiv d\phi/d\tau = a\dot\phi$.
+Throughout, $\Am' \equiv d\Am/d\phi$, $\Ar' \equiv d\Ar/d\phi$ (derivatives w.r.t.\ the field).
+Synchronous gauge for perturbations, CLASS/Ma--Bertschinger notation.
+
+\section{Model (paper 2505.10410, Sec.~2--3)}
+
+Action and Lagrangian (first blackboard line, cleaned):
+\begin{align}
+S &= \int d^{4}x\,\sqrt{|g_4|}\left(\frac{M_p^{2}}{2}\,R_4-\mathcal{L}\right),\\
+\mathcal{L} &= \frac12\,\partial_{\mu}\phi\,\partial^{\mu}\phi
+   + V(\phi)
+   + \Am(\phi)\,\Lm
+   + \Ar(\phi)\,\Lr ,
+\qquad
+\Lr = \tfrac14 F_{\mu\nu}F^{\mu\nu} + \text{gauge} .
+\end{align}
+On-shell identifications: $\Lm=\rhob_m$, $\delta\Lm=\delta\rhob_m$, and for the
+radiation (effective fluid) sector $\Lr=\rhob_r$, $\delta\Lr=\delta\rhob_r$.
+
+Coupled densities [paper (2.19)]:
+\begin{equation}
+\rho_m=\Am(\phi)\,\rhob_m,\quad \rhob_m=\rho_{m0}\,a^{-3},
+\qquad
+\rho_r=\Ar(\phi)\,\rhob_r,\quad \rhob_r=\rho_{r0}\,a^{-4},
+\qquad p_r=\tfrac13\rho_r .
+\end{equation}
+
+Coupling functions, \textbf{Eq.~(3.11)} of the paper, same form for both sectors:
+\begin{equation}
+\boxed{\;
+\Am(\phi)=1+A^{\phi}_{m}\left(e^{\alpha_m\phi}-1\right),
+\qquad
+\Ar(\phi)=1+A^{\phi}_{r}\left(e^{\alpha_r\phi}-1\right).
+\;}
+\label{eq:A311}
+\end{equation}
+String-inspired values (3.12): $\lambda=\sqrt{8/3}$, $\alpha_m=\sqrt{3/8}$,
+$\alpha_r=\sqrt{3/2}$, $A^{\phi}_m=A^{\phi}_r=1/8$.
+
+Scalar field equation [paper (2.22)], cosmic time:
+\begin{equation}
+\ddot\phi+3H\dot\phi+V_{,\phi}+\rhob_m \Am'+\rhob_r \Ar'=0 .
+\label{eq:KGbg}
+\end{equation}
+
+\section{Modified background equations (derivation; matches board of 12/06 and paper Sec.~2)}
+
+Cosmic time, $H=\dot a/a$, $M_p=1$. From varying the Lagrangian w.r.t.\ $\phi$,
+with $\Lm=\rhob_m$, $\Lr=\rhob_r$ on-shell [paper (2.22)]:
+\begin{equation}
+\boxed{\;\ddot\phi+3H\dot\phi+V'+\rhob_m\,\Am'+\rhob_r\,\Ar'=0\;}
+\label{eq:KGbg2}
+\end{equation}
+With $\rho_\phi=\tfrac12\dot\phi^2+V$, $p_\phi=\tfrac12\dot\phi^2-V$,
+multiplying \eqref{eq:KGbg2} by $\dot\phi$:
+\begin{equation}
+\dot\rho_\phi=\dot\phi\,\ddot\phi+V'\dot\phi
+=-3H(1+w_\phi)\rho_\phi-\rhob_m\Am'\dot\phi-\rhob_r\Ar'\dot\phi .
+\qquad\text{[board line 2; paper (2.23)]}
+\label{eq:rhophidot}
+\end{equation}
+Coupled fluids: since $\rho_m=\Am(\phi)\rhob_m$ with $\rhob_m\propto a^{-3}$
+(and similarly $\rho_r$ with $a^{-4}$, $w_r=1/3$),
+\begin{align}
+\boxed{\;\dot\rho_m=-3H\rho_m+\big(\partial_\phi\ln \Am\big)\dot\phi\,\rho_m\;}
+\qquad
+\boxed{\;\dot\rho_r=-3H\Big(1+\tfrac13\Big)\rho_r+\big(\partial_\phi\ln \Ar\big)\dot\phi\,\rho_r\;}
+\label{eq:fluidbg}
+\end{align}
+[board lines 4--5]. Effective dark energy, defined so that Friedmann equations keep
+their standard form in terms of the \emph{uncoupled} ($\propto a^{-3},a^{-4}$)
+densities [board right block; paper (2.20)--(2.21)]:
+\begin{align}
+\rho_\phi+\rho_m+\rho_r &= \rho_{\rm DE}+\rhob_m+\rhob_r ,
+&\rho_{\rm DE}&\equiv\rho_\phi+(\Am-1)\rhob_m+(\Ar-1)\rhob_r ,
+\\
+w_{\rm DE}\,\rho_{\rm DE} &= w_\phi\,\rho_\phi+\tfrac13(\Ar-1)\rhob_r .
+\label{eq:wDE}
+\end{align}
+Consistency check: differentiating $\rho_{\rm DE}$ and using
+\eqref{eq:rhophidot}--\eqref{eq:fluidbg}, the explicit coupling terms cancel,
+\begin{equation}
+\dot\rho_{\rm DE}
+=-3H(1+w_\phi)\rho_\phi-3H(\Am-1)\rhob_m-4H(\Ar-1)\rhob_r
+=-3H(1+w_{\rm DE})\rho_{\rm DE},
+\end{equation}
+where the last equality holds precisely with definition \eqref{eq:wDE}
+[board line 3; paper (2.24)]. Note that $w_{\rm DE}\neq w_\phi\rho_\phi/\rho_{\rm DE}$
+once $\Ar\neq1$: the radiation coupling adds the $\tfrac13(\Ar-1)\rhob_r$ term,
+contrary to the matter-only case (2.7).
+
+\subsection*{Code form (conformal time, CLASS units $\rho_{\rm class}=\rho_{\rm phys}/3$)}
+
+With $\phi'=a\dot\phi$, $\cH=aH$:
+\begin{align}
+\phi''+2\cH\phi'+a^2\Big(V_{,\phi}-Q_m-Q_r\Big)&=0 ,
+&Q_m&=-3\rho_{\rm qcdm}\frac{\Am'}{\Am}, \quad
+Q_r=-3\rho_{\rm idr}\frac{\Ar'}{\Ar},
+\\
+\frac{d\rho_{\rm qcdm}}{d\ln a}&=-3\rho_{\rm qcdm}-\frac{1}{3}\,Q_m\frac{\phi'}{\cH},
+&\frac{d\rho_{\rm idr}}{d\ln a}&=-4\rho_{\rm idr}-\frac{1}{3}\,Q_r\frac{\phi'}{\cH}.
+\end{align}
+$Q_m$ is the existing \texttt{Q\_scf} in the pure conformal limit
+($\Am'/\Am=\tfrac12C_{,\phi}/C$); $Q_r$ is new. Equivalently
+$\rho_{\rm idr}=\Ar(\phi)\,\rhob_{\rm idr},\ \rhob_{\rm idr}\propto a^{-4}$ can be used
+algebraically instead of integrating. $H^2=\sum_n\rho_{n,\rm class}$ unchanged,
+with $\rho_{\rm qcdm}$, $\rho_{\rm idr}$ the \emph{coupled} densities.
+
+\section{Blackboard perturbation equations (corrected transcription)}
+
+(Subscripts on the board are $m$ and $r$, not $x$; second photo adds the
+momentum equation.)
+\begin{align}
+\delta T^{0}{}_{0}
+&= \tfrac12\dot{\phi}^2\,\delta g^{00}
+   + g^{00}\dot{\phi}\,\delta\dot{\phi}
+   - V'\delta\phi
+   - \Am\,\delta\Lm - \Ar\,\delta\Lr
+   - \Am'\,\delta\phi\,\rhob_{m}
+   - \Ar'\,\delta\phi\,\rhob_{r},
+\\[4pt]
+\delta T^{i}{}_{0} &= g^{ij}\,\partial_0\phi\,\partial_j\delta\phi ,
+\qquad \delta\Sigma^{i}{}_{j}=0 ,
+\\[4pt]
+\delta T^{i}{}_{j}
+&= -\delta^{i}_{j}\,\delta g^{00}\tfrac{\dot\phi^{2}}{2}
+   - \delta^{i}_{j}\,g^{00}\dot{\phi}\,\delta\dot{\phi}
+   - \delta^{i}_{j}\,V'\delta\phi
+   + \tfrac13\delta^{i}_{j}\left(\Ar\,\delta\Lr
+   + \Ar'\,\delta\phi\,\rhob_{r}\right),
+\\[4pt]
+\nabla_{\mu}\delta T^{\mu}{}_{0}
+&= \nabla_{0}\left(\phi, V, m, r\right)
+   - \left(\Am'\,\rhob_m+\Ar'\,\rhob_r\right)\delta\dot{\phi}
+   - \left(\Am''\,\rhob_m+\Ar''\,\rhob_r\right)\dot{\phi}\,\delta\phi
+   + \dot{\phi}\,\Delta_3\,\delta\phi ,
+\\[4pt]
+\nabla_{\mu}\delta T^{\mu}{}_{j}
+&= g^{00}\ddot\phi\,\partial_j\delta\phi
+   + g^{00}\dot\phi\,\nabla_0\partial_j\delta\phi
+   - \nabla_j\!\left(\tfrac12\delta g^{00}\dot\phi^2
+   + g^{00}\dot\phi\,\delta\dot\phi - V'\delta\phi\right)
+   + \tfrac13\Ar\,\nabla_j\,\delta\Lr
+   \underbrace{+\tfrac13\,\Ar'\,\rhob_r\,\partial_j\delta\phi}_{\text{only new term}} .
+\label{eq:boardEuler}
+\end{align}
+Hence for the coupled radiation fluid:
+\begin{equation}
+\delta\rho_r=\Ar\,\delta\rhob_r+\Ar'\,\delta\phi\,\rhob_r ,
+\qquad
+\delta p_r=\tfrac13\,\delta\rho_r ,
+\qquad
+(\rho_r+p_r)\,\theta_r=\Ar(\rhob_r+\bar p_r)\,\bar\theta_r
+\;\Rightarrow\;\theta_r=\bar\theta_r .
+\label{eq:deltarhor}
+\end{equation}
+
+\section{Mapping to \texttt{darkin-class} (DM sector)}
+
+The code implements the conformal coupling via $C(\phi)$
+(currently $C=C_0e^{2\beta\phi}$), with background KG
+$\phi''+2\cH\phi'+a^2(V_{,\phi}-Q)=0$ and qcdm continuity
+$\rho_{\rm qcdm}'=-3\cH\rho_{\rm qcdm}-\tfrac13 Q\,\phi'$; for pure conformal
+$Q=-\tfrac32\,\rho_{\rm qcdm}\,C'/C$ (CLASS units $\rho_{\rm class}=\rho_{\rm phys}/3$,
+hence the relative factor 3 between KG and continuity). This integrates to
+$\rho_{\rm qcdm}\propto C^{1/2}a^{-3}$, so the dictionary is
+\begin{equation}
+\boxed{\;\Am=C^{1/2}\quad\Longleftrightarrow\quad C(\phi)=\Am(\phi)^2
+=\left[1+A^{\phi}_{m}\left(e^{\alpha_m\phi}-1\right)\right]^2 .\;}
+\label{eq:mapping}
+\end{equation}
+This is consistent with 1707.07667, Eqs.~(2.18)--(2.19): $C=e^{2\alpha\kappa\phi}$ and
+$Q^{(c)}=-\tfrac12(\ln C)_{,\phi}(1-3w_c)\rho_c$, so that the coupling strength is
+\begin{equation}
+\Lambda_m \equiv \frac{d\ln \Am}{d\phi} = \frac{\Am'}{\Am} = \frac12\,(\ln C)_{,\phi} ,
+\qquad
+\Lambda_{2,m} \equiv \frac{d^2\ln \Am}{d\phi^2} = \frac{\Am''}{\Am}-\Lambda_m^2 .
+\end{equation}
+Note the $(1-3w)$ factor in $Q^{(c)}$: the standard conformal (trace) coupling
+\emph{vanishes} for radiation, which is precisely why the DR--DE coupling below is a
+different structure (multiplicative $\Ar(\phi)\Lr$) and needs new code.
+
+\textbf{Implementation:} add a new selectable functional form for
+$C_{\rm scf},\,dC_{\rm scf},\,ddC_{\rm scf}$:
+\begin{align}
+C &= \Am^2, \qquad
+\frac{dC}{d\phi} = 2\,\Am\,\Am', \qquad
+\frac{d^2C}{d\phi^2} = 2\,(\Am')^2 + 2\,\Am\,\Am'' ,\\
+\Am' &= A^{\phi}_m\,\alpha_m\,e^{\alpha_m\phi}, \qquad
+\Am'' = A^{\phi}_m\,\alpha_m^2\,e^{\alpha_m\phi} .
+\end{align}
+All existing $Q_{\rm scf}$, $\delta Q_{\rm scf}$ (B-coefficient) machinery for the
+qcdm background and perturbations is reused unchanged.
+
+\subsection*{Matter perturbations (check: must match 2212.08098 and repo papers)}
+
+With the identification $d\ln m_{\rm DM}/d\phi \leftrightarrow \Lambda_m$, the coupled DM
+perturbation equations in synchronous gauge are exactly Eqs.~(15)--(17) of 2212.08098
+(full density contrast $\delta_c$, $\dot{}=d/d\tau$ there):
+\begin{align}
+\dot\delta_c + \theta_c + \frac{\dot h}{2}
+&= \Lambda_m\,\dot{\delta\phi} + \Lambda_{2,m}\,\dot\phi\,\delta\phi ,
+\label{eq:dmcont}\\
+\dot\theta_c + aH\theta_c
+&= \Lambda_m\,k^2\delta\phi - \Lambda_m\,\dot\phi\,\theta_c ,
+\label{eq:dmeuler}\\
+\ddot{\delta\phi} + 2aH\,\dot{\delta\phi}
++ \left(k^2 + a^2 \frac{d^2V}{d\phi^2}\right)\delta\phi + \frac12\dot h\,\dot\phi
+&= -a^2\,\rho_{c}\left[\Lambda_m\,\delta_c + \Lambda_{2,m}\,\delta\phi\right]
+\quad\text{(physical units; $\times3$ for $\rho_{\rm class}$).}
+\label{eq:dmdKG}
+\end{align}
+These are what the existing qcdm $\delta Q$ machinery must reproduce in the pure
+conformal limit (cross-check of the code, not new code). The genuinely new content
+is the radiation sector below.
+
+\section{DR--DE coupling: equations to implement (new \texttt{idr\_de} switch)}
+
+Background (no thermodynamics changes; $\sigma$, $l\ge2$ hierarchy untouched):
+\begin{align}
+\rho_{\rm idr} &= \Ar(\phi)\,\rhob_{\rm idr},
+\qquad \rhob_{\rm idr}\propto a^{-4},
+\qquad p_{\rm idr}=\tfrac13\rho_{\rm idr},
+\label{eq:idrbg}\\
+\phi''+2\cH\phi' &+ a^{2}\Big(V_{,\phi}
++ \underbrace{3\,\rhob_{\rm qcdm}\Am'}_{\text{existing }(-Q)}
++ \underbrace{3\,\rhob_{\rm idr}\,\Ar'}_{\text{new}}\Big)=0
+\qquad\text{(CLASS units).}
+\label{eq:KGcode}
+\end{align}
+Energy transfer: $\dot\rho_{\rm idr}+4H\rho_{\rm idr}=(\Ar'/\Ar)\,\dot\phi\,\rho_{\rm idr}$.
+
+Perturbations, written for the \emph{full} (coupled) variables
+$\delta_{\rm idr}\equiv\delta\rho_{\rm idr}/\rho_{\rm idr}$ and $\theta_{\rm idr}$,
+synchronous gauge, with
+$\Lambda_r \equiv \Ar'/\Ar$, $\Lambda_{2,r}\equiv \Ar''/\Ar-\Lambda_r^2$:
+\begin{align}
+\boxed{\;
+\delta_{\rm idr}' = -\frac43\left(\theta_{\rm idr}+\frac{h'}{2}\right)
++\Lambda_r\,\delta\phi'
++\Lambda_{2,r}\,\phi'\,\delta\phi
+\;}
+\label{eq:idrcont}
+\end{align}
+\begin{align}
+\boxed{\;
+\theta_{\rm idr}' = \frac{k^{2}}{4}\,\delta_{\rm idr}
+- k^{2}\sigma_{\rm idr}
++ \frac34\,\Lambda_r\,k^{2}\,\delta\phi
+- \Lambda_r\,\phi'\,\theta_{\rm idr}
+\;}
+\label{eq:idreuler}
+\end{align}
+Derivation note for \eqref{eq:idreuler}: the $r$-sector obeys
+$\nabla_\mu T^{\mu}{}_{\nu}(r) = -\Ar'\,\rhob_r\,\partial_\nu\phi$
+(from the $\phi$ equation of motion and total conservation; the board's
+``new term'' in \eqref{eq:boardEuler} is the $\Ar'\delta\phi$ piece of
+$\partial_j\delta p_r$, internal to the $r$-sector stress divergence).
+Momentum conservation with $\rho_r+p_r=\tfrac43\rho_r$ and
+$\rho_r'=-4\cH\rho_r+\Lambda_r\phi'\rho_r$ then gives \eqref{eq:idreuler}.
+Consistency check in bar variables ($\delta_{\rm idr}=\bar\delta+\Lambda_r\delta\phi$,
+$\theta_{\rm idr}=\bar\theta$):
+\begin{equation}
+\bar\delta'=-\tfrac43\big(\bar\theta+\tfrac{h'}{2}\big),
+\qquad
+\bar\theta'=\tfrac{k^2}{4}\bar\delta-k^2\bar\sigma
++\Lambda_r\,k^2\delta\phi-\Lambda_r\,\phi'\,\bar\theta ,
+\end{equation}
+i.e.\ the fifth-force term $+\Lambda_r k^2\delta\phi$ has \emph{the same
+coefficient as the matter equation} \eqref{eq:dmeuler}, as it must
+(same covariant force structure per unit inertia).
+[v1 of this note had $-\tfrac{k^2}{4}\Lambda_r\delta\phi$ in
+\eqref{eq:idreuler}: that was wrong, fixed against 2212.08098 Eq.~(17).]
+
+Perturbed scalar field equation: same structure as \eqref{eq:dmdKG} with the new
+radiation source added (both sectors written in full-$\delta$ variables):
+\begin{equation}
+\boxed{\;
+\delta\phi''+2\cH\,\delta\phi'+\left(k^{2}+a^{2}V_{,\phi\phi}\right)\delta\phi
++\tfrac12 h'\phi'
+= -a^{2}\!\!\sum_{s=c,\,{\rm idr}}\!\!\rho_s\left[\Lambda_s\,\delta_s
++ \Lambda_{2,s}\,\delta\phi\right]
+\;}
+\label{eq:dKG}
+\end{equation}
+(physical units; $\rho_{\rm phys}=3\rho_{\rm class}$; the $s=c$ term is the
+existing $\delta Q$ machinery, the $s={\rm idr}$ term is new). Equivalent bar form
+of the source: $-a^2[\Ar''\rhob_{\rm idr}\delta\phi+\Ar'\rhob_{\rm idr}\bar\delta_{\rm idr}]$
+with $\bar\delta_{\rm idr}=\delta_{\rm idr}-\Lambda_r\delta\phi$.
+
+\section{Open choices / questions}
+
+\begin{enumerate}
+\item \textbf{Normalization.} Eq.~\eqref{eq:A311} gives $A(0)=1$, while the paper
+normalizes $A(\phi_0)=1$ \emph{today}. Options for the idr sector:
+(a) shooting so that $\Ar(\phi_0)=1$ and $\Omega^0_{\rm idr}$ is the true density
+today (analog of \texttt{scf\_shoot\_C0}); (b) let $\Omega^0_{\rm idr}$
+parametrize $\rhob_{\rm idr}$ only. Same question for the matter sector via
+$C(\phi_0)$. \todo{choose}
+\item \textbf{Initial conditions.} Adiabatic ICs for idr kept standard, assuming
+$\Ar'\phi'\to$ negligible at early times (thawing, $\phi$ frozen). \todo{confirm}
+\item \textbf{Euler equation} \eqref{eq:idreuler}: now anchored to
+2212.08098 Eqs.~(16)--(17) via the bar-variable consistency check
+(fifth force $+\Lambda_r k^2\delta\phi$, drag $-\Lambda_r\phi'\theta$,
+matching the matter sector coefficient-for-coefficient). \todo{re-check the
+$\tfrac34$ vs $1$ coefficient bookkeeping between full and bar variables}
+\end{enumerate}
+
+\end{document}
