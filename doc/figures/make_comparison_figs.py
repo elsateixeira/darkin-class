@@ -100,7 +100,6 @@ def radiation_panel(axcol, tag, title):
     rho_dr_bar = col(d, i, "(.)rho_idr") / A_r
     A_m = np.sqrt(col(d, i, "C_scf"))
     rho_m_bar = col(d, i, "(.)rho_qcdm") / A_m
-    rho_phi = col(d, i, "(.)rho_scf")
     rho_de = col(d, i, "(.)rho_DE_eff")
     w_de = col(d, i, "w_DE_eff")
     order = np.argsort(N)
@@ -119,7 +118,14 @@ def radiation_panel(axcol, tag, title):
     b = axcol[1]
     b.plot(lz, np.log10(rho_dr_bar[zz] / H02), "C3", label=r"$\bar\rho_{\rm DR}$")
     b.plot(lz, np.log10(rho_m_bar[zz] / H02), "C0", label=r"$\bar\rho_m$")
-    b.plot(lz, np.log10(rho_phi[zz] / H02), "C2", label=r"$\rho_\phi$")
+    # Effective dark-energy density rho_DE = rho_phi + (A_m-1)rho_bar_m + (A_r-1)rho_bar_r.
+    # It can go negative where (A_r-1)<0, so plot log10|rho_DE| and mark negative stretches.
+    rho_de_z = rho_de[zz] / H02
+    pos = rho_de_z > 0
+    b.plot(lz[pos], np.log10(rho_de_z[pos]), "C2", label=r"$\rho_{\rm DE}$")
+    if np.any(~pos):
+        b.plot(lz[~pos], np.log10(-rho_de_z[~pos]), "C2", ls=":",
+               label=r"$\rho_{\rm DE}<0$")
     b.set_xlabel(r"$\log_{10}z$"); b.set_ylabel(r"$\log_{10}(\rho/H_0^2)$")
     b.set_xlim(0, 7); b.legend(loc="upper right")
 

@@ -117,11 +117,20 @@ The option
 \eeq
 reconstructs $\phi_{\rm ini}$, $\phi'_{\rm ini}$, $V_0$, and the initial qcdm
 density from the requested today values.  This is used by
-\texttt{fig3\_2505\_matter.ini}.  The slope used for the Fig.~3 reproduction is
+\texttt{fig3\_2505\_matter.ini}.
+
+The Fig.~3 reproduction uses exactly the parameter values of Eq.~(3.8) of
+\texttt{2505.10410v2.pdf}.  With the identification $C_m\equiv A_{m\varphi}$ and
+$\beta_m\equiv\alpha_m$ between Eq.~\eqref{eq:amform} and Eq.~(3.7) of the paper,
 \beq
-\lambda=\sqrt{2},
+\lambda=\sqrt{2},\qquad
+C_m=\frac18,\qquad
+\beta_m=\sqrt{\tfrac23},\qquad
+w_{\varphi0}=-0.76365999931 ,
 \eeq
-as in Eq.~(3.8) of \texttt{2505.10410v2.pdf}.
+set in the code as \texttt{scf\_lambda = 1.4142135623730951},
+\texttt{scf\_C0 = 0.125}, \texttt{scf\_beta = 0.816496580927726}, and
+\texttt{scf\_w\_phi\_today = -0.76365999931}.  (The slope is $\sqrt2$, not $2$.)
 
 For this case the effective dark-energy variables are
 \beq
@@ -213,7 +222,10 @@ The effective dark-energy output is
 \caption{Radiation-coupled CLASS reproduction for the two
 \texttt{NotesRadiationCoupling} Fig.~1 models.  The plotted barred radiation and
 matter densities are reconstructed as
-$\rhob_r=\rho_{\rm idr}/\Ar$ and $\rhob_m=\rho_{\rm qcdm}/\Am$.}
+$\rhob_r=\rho_{\rm idr}/\Ar$ and $\rhob_m=\rho_{\rm qcdm}/\Am$.  The middle row
+shows the effective dark-energy density $\rhode$ [Eq.~\eqref{eq:deeffrho}]; since
+$\rhode$ can change sign where $(\Ar-1)<0$, we plot $\log_{10}|\rhode/H_0^2|$ and
+draw the negative stretches with a dotted line.}
 \label{fig:radiation}
 \end{figure}
 
