@@ -13,7 +13,7 @@ extract cosmological parameters.
 """
 from math import exp,log
 import numpy as np
-from os.path import abspath, dirname
+from os.path import abspath, dirname, exists, join
 cimport numpy as np
 from libc.stdlib cimport *
 from libc.stdio cimport *
@@ -347,8 +347,12 @@ cdef class Class:
         try:
           import importlib.resources
           resource_path = abspath(importlib.resources.files('classy'))
-        except ImportError as ie:
+        except Exception:
           resource_path = dirname(abspath(__file__))
+          for _ in range(6):
+            if exists(join(resource_path, "external", "bbn")):
+              break
+            resource_path = dirname(resource_path)
         path_to_this_as_bytes = resource_path.encode()
         dumc = path_to_this_as_bytes
         sprintf(self.path_to_this,"%s",dumc)

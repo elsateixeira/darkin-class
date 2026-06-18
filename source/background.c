@@ -443,7 +443,7 @@ int background_functions(
     rho_m += pvecback[pba->index_bg_rho_cdm];
   }
 
-  /* ET: vanilla IDM keeps the built-in photon/baryon/idr interaction role. */
+  /* idm */
   if (pba->has_idm == _TRUE_) {
     pvecback[pba->index_bg_rho_idm] = pvecback_B[pba->index_bi_rho_idm];
     rho_tot += pvecback[pba->index_bg_rho_idm];
@@ -452,7 +452,7 @@ int background_functions(
     rho_idm = pvecback_B[pba->index_bi_rho_idm];
   }
 
-  /* ET: qcdm is the scalar-field coupled cold dark matter component. */
+  /* ET: qcdm is the scalar-field coupled cold dark matter component */
   if (pba->has_qcdm == _TRUE_) {
     pvecback[pba->index_bg_rho_qcdm] = pvecback_B[pba->index_bi_rho_qcdm];
     rho_tot += pvecback[pba->index_bg_rho_qcdm];
@@ -653,11 +653,16 @@ int background_functions(
 
   /* Derivative of total pressure w.r.t. conformal time */
   pvecback[pba->index_bg_p_tot_prime] = a*pvecback[pba->index_bg_H]*dp_dloga;
-  /* ET: p'_scf depending on the type of coupling */
+  /* ET: p'_scf for the active scalar pressure definition.
+     If momentum is active, use the Type-3 pressure even when Q-sector
+     couplings are also active. The Q-sector source enters through the KG
+     acceleration term, while the explicit potential derivative remains dV. */
   if (pba->has_scf == _TRUE_) {
     double Q_bg_scf = 0.;
+    double dV_eff_scf = pvecback[pba->index_bg_dV_scf];
     if (pba->has_qcdm_de_q == _TRUE_) {
       Q_bg_scf = pvecback[pba->index_bg_Q_scf];
+      dV_eff_scf -= Q_bg_scf;
     }
     if (pba->has_scf_momentum == _TRUE_) {
       /* ET: generic Type-3 momentum coupling with Z = -phi'/a and arbitrary gamma_scf(Z) */
@@ -669,7 +674,7 @@ int background_functions(
       /* ET: p'_scf from p_scf=(Z^2/2-gamma-V)/3 using KG written in terms of Z */
       pvecback[pba->index_bg_p_prime_scf] = (a/3.)*(-3.*pvecback[pba->index_bg_H]
          *Z_minus_gamma_Z*Z_minus_gamma_Z/denom_gamma
-         + (pvecback[pba->index_bg_dV_scf]-Q_bg_scf)*Z_minus_gamma_Z/denom_gamma
+         + dV_eff_scf*Z_minus_gamma_Z/denom_gamma
          + pvecback[pba->index_bg_dV_scf]*pvecback[pba->index_bg_mom_scf]);
     }
     else if (pba->has_qcdm_de_q == _TRUE_) {

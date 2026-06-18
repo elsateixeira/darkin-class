@@ -899,12 +899,12 @@ int input_needs_shooting_for_target(struct file_content * pfc,
     break;
   case Omega_idm:
   case omega_idm:
-    /* ET: vanilla idm has no scalar-field background energy transfer. */
+    /* ET: vanilla idm has no scalar-field background energy transfer */
     *needs_shooting = _FALSE_;
     break;
   case Omega_qcdm:
   case omega_qcdm:
-    /* ET: qcdm only needs shooting when the Q-sector changes its background density. */
+    /* ET: qcdm only needs shooting when the Q-sector changes its background density */
     if (target_value == 0.) {
       *needs_shooting = _FALSE_;
     }
@@ -1347,7 +1347,7 @@ int input_get_guess(double *xguess,
       if (gamma > 100)
         dxdy[index_guess] *= gamma/100;
       break;
-    /* ET: Added idm shooting based on initial value (similar to dcdm above) */
+    /* ET: Added idm and qcdm shooting based on initial value (similar to dcdm above) */
     case Omega_idm:
       xguess[index_guess] = pfzw->target_value[index_guess];
       dxdy[index_guess] = 1.0;
@@ -1593,7 +1593,6 @@ int input_try_unknown_parameters(double * unknown_parameter,
     case Omega_idm:
       rho_idm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_idm];
       output[i] = (rho_idm_today)/(ba.H0*ba.H0)-pfzw->target_value[i];
-      printf("output[%i] = %.5g. target_value = %e.\n",i,output[i],pfzw->target_value[i]);
       break;
     case omega_idm:
       rho_idm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_idm];
