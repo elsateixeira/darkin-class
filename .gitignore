@@ -14,3 +14,8 @@ RealSpaceInterface/cache/
 doc/manual/html
 doc/manual/latex
 source/checks.txt
+configs
+notebooks/figures
+notebooks/notebooks
+notebooks/python
+notebooks/Coupling_example.ipynb
