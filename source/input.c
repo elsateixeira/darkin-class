@@ -520,6 +520,7 @@ int input_shooting(struct file_content * pfc,
   double * unknown_parameter;
   int unknown_parameters_size;
   int counter, index_target;
+  int original_fc_size, index_guess_entry, existing_unknown_index;
   int fevals=0;
   double xzero;
   double *dxdF, *x_inout;
@@ -534,6 +535,8 @@ int input_shooting(struct file_content * pfc,
                                        "Omega_dcdmdr",
                                        "omega_dcdmdr",
                                        "Omega_scf",
+                                       "scf_phi_today",       /* ET: scalar field value today */
+                                       "scf_w_phi_today",     /* ET: scalar field equation of state today */
                                        "Omega_ini_dcdm",
                                        "omega_ini_dcdm",
                                        "Omega_idm",             /* ET: Added initial condition for idm shooting */
@@ -548,6 +551,8 @@ int input_shooting(struct file_content * pfc,
                                         "Omega_ini_dcdm",           /* unknown param for target 'Omega_dcdmd' */
                                         "omega_ini_dcdm",           /* unknown param for target 'omega_dcdmdr' */
                                         "scf_shooting_parameter",   /* unknown param for target 'Omega_scf' */
+                                        "scf_phi_ini",              /* ET: unknown param for target 'scf_phi_today' */
+                                        "scf_phi_prime_ini",        /* ET: unknown param for target 'scf_w_phi_today' */
                                         "Omega_dcdmdr",             /* unknown param for target 'Omega_ini_dcdm' */
                                         "omega_dcdmdr",             /* unknown param for target 'omega_ini_dcdm' */
                                         "Omega_ini_idm",             /* ET: unknown param for target 'Omega_idm' */
@@ -564,6 +569,8 @@ int input_shooting(struct file_content * pfc,
                                         cs_background,     /* computation stage for target 'Omega_dcdmdr' */
                                         cs_background,     /* computation stage for target 'omega_dcdmdr' */
                                         cs_background,     /* computation stage for target 'Omega_scf' */
+                                        cs_background,     /* ET: computation stage for target 'scf_phi_today' */
+                                        cs_background,     /* ET: computation stage for target 'scf_w_phi_today' */
                                         cs_background,     /* computation stage for target 'Omega_ini_dcdm' */
                                         cs_background,     /* computation stage for target 'omega_ini_dcdm' */
                                         cs_background,     /* ET: computation stage for target 'Omega_idm' */
@@ -611,6 +618,7 @@ int input_shooting(struct file_content * pfc,
     /* Create file content structure with additional entries */
     class_call(parser_extend(pfc, unknown_parameters_size, errmsg),
                errmsg,errmsg);
+    original_fc_size = pfc->size - unknown_parameters_size;
 
     class_call(parser_init_from_pfc(pfc, &(fzw.fc), errmsg),
                errmsg,errmsg);
@@ -645,10 +653,25 @@ int input_shooting(struct file_content * pfc,
       fzw.target_name[counter] = index_target;
       /* store target value of target parameter */
       fzw.target_value[counter] = param1;
-      fzw.unknown_parameters_index[counter]=pfc->size+counter-unknown_parameters_size;
-      /* substitute the name of the target parameter with the name of the
-         corresponding unknown parameter */
-      strcpy(fzw.fc.name[fzw.unknown_parameters_index[counter]],unknown_namestrings[index_target]);
+      existing_unknown_index = -1;
+      for (index_guess_entry = 0; index_guess_entry < original_fc_size; index_guess_entry++) {
+        if (strcmp(fzw.fc.name[index_guess_entry],unknown_namestrings[index_target]) == 0) {
+          existing_unknown_index = index_guess_entry;
+          break;
+        }
+      }
+
+      if (existing_unknown_index >= 0) {
+        fzw.unknown_parameters_index[counter]=existing_unknown_index;
+        class_sprintf(fzw.fc.name[original_fc_size+counter],"shooting_unused_%d",counter);
+        class_sprintf(fzw.fc.value[original_fc_size+counter],"0");
+      }
+      else {
+        fzw.unknown_parameters_index[counter]=original_fc_size+counter;
+        /* substitute the name of the target parameter with the name of the
+           corresponding unknown parameter */
+        strcpy(fzw.fc.name[fzw.unknown_parameters_index[counter]],unknown_namestrings[index_target]);
+      }
     }
 
     /** If there is only one parameter, we use a more efficient Newton method for 1D cases */
@@ -751,6 +774,13 @@ int input_shooting(struct file_content * pfc,
 
     /** Set status of shooting */
     pba->shooting_failed = shooting_failed;
+
+    for (counter = 0; counter < unknown_parameters_size; counter++){
+      if (fzw.unknown_parameters_index[counter] < original_fc_size) {
+        strcpy(pfc->value[fzw.unknown_parameters_index[counter]],
+               fzw.fc.value[fzw.unknown_parameters_index[counter]]);
+      }
+    }
 
     parser_copy(&(fzw.fc), pfc, pfc->size - unknown_parameters_size, pfc->size);
 
@@ -885,6 +915,15 @@ int input_needs_shooting_for_target(struct file_content * pfc,
                                     ErrorMsg errmsg){
   char string1[_ARGUMENT_LENGTH_MAX_];
   int flag1, flag2;
+  double param1;
+  int scf_ic_from_today = _FALSE_;
+
+  class_call(parser_read_string(pfc,"scf_ic_from_today",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  if ((flag1 == _TRUE_) && (string_begins_with(string1,'y') || string_begins_with(string1,'Y'))) {
+    scf_ic_from_today = _TRUE_;
+  }
 
   *needs_shooting = _TRUE_;
   switch (target_name){
@@ -896,6 +935,21 @@ int input_needs_shooting_for_target(struct file_content * pfc,
     /* Check that Omega's or omega's are nonzero: */
     if (target_value == 0.)
       *needs_shooting = _FALSE_;
+    if ((target_name == Omega_scf) && (scf_ic_from_today == _TRUE_))
+      *needs_shooting = _FALSE_;
+    break;
+  case scf_phi_today:
+  case scf_w_phi_today:
+    if (scf_ic_from_today == _TRUE_) {
+      *needs_shooting = _FALSE_;
+      break;
+    }
+    class_call(parser_read_double(pfc,"Omega_scf",&param1,&flag1,errmsg),
+               errmsg,
+               errmsg);
+    class_test(flag1 == _FALSE_, errmsg,
+               "Target '%s' requires a non-zero Omega_scf entry.",
+               target_name == scf_phi_today ? "scf_phi_today" : "scf_w_phi_today");
     break;
   case Omega_idm:
   case omega_idm:
@@ -905,7 +959,7 @@ int input_needs_shooting_for_target(struct file_content * pfc,
   case Omega_qcdm:
   case omega_qcdm:
     /* ET: qcdm only needs shooting when the Q-sector changes its background density. */
-    if (target_value == 0.) {
+    if ((target_value == 0.) || (scf_ic_from_today == _TRUE_)) {
       *needs_shooting = _FALSE_;
     }
     else {
@@ -1330,6 +1384,14 @@ int input_get_guess(double *xguess,
         dxdy[index_guess] = 1.;
       }
       break;
+    case scf_phi_today:
+      xguess[index_guess] = ba.phi_ini_scf;
+      dxdy[index_guess] = 0.1;
+      break;
+    case scf_w_phi_today:
+      xguess[index_guess] = ba.phi_prime_ini_scf;
+      dxdy[index_guess] = MAX(fabs(ba.phi_prime_ini_scf)*0.1,1.e-8);
+      break;
     case omega_ini_dcdm:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
     case Omega_ini_dcdm:
@@ -1580,6 +1642,18 @@ int input_try_unknown_parameters(double * unknown_parameter,
       /** In case scalar field is used to fill, pba->Omega0_scf is not equal to pfzw->target_value[i].*/
       output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0)-ba.Omega0_scf;
       break;
+    case scf_phi_today:
+      output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_phi_scf]-pfzw->target_value[i];
+      break;
+    case scf_w_phi_today: {
+      double rho_scf_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf];
+      double p_scf_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_p_scf];
+      class_test(rho_scf_today == 0.,
+                 errmsg,
+                 "Cannot shoot on scf_w_phi_today because rho_scf(today) is zero.");
+      output[i] = p_scf_today/rho_scf_today-pfzw->target_value[i];
+      break;
+    }
     case Omega_ini_dcdm:
     case omega_ini_dcdm:
       rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
@@ -3512,24 +3586,30 @@ int input_read_parameters_species(struct file_content * pfc,
     // ET: added extra locals here instead of params
     double scf_lambda_val = 0., scf_V0_val = 1., scf_lambda_2_val = 0., scf_V0_2_val = 0.;
     double scf_C0_val = 0., scf_beta_val = 0., scf_alpha_val = 0., scf_D0_val = 0.;
+    double scf_C0_r_val = 0., scf_beta_r_val = 0.;
     double scf_gamma0_val = 0., scf_gamma_legacy_val = 0.;
     double scf_log10minus_gamma0_val = 0., scf_log10minus_gamma_legacy_val = 0.;
     double scf_g0_val = 0., scf_h0_val = 0.;
     double scf_As_val = 0., scf_ns_val = 0., scf_kp_val = 1., scf_kc_val = 1., scf_pc_val = 1.;
     double scf_phi_ini_val = 0., scf_phi_prime_ini_val = 0.;
+    double scf_phi_today_val = 0., scf_w_today_val = -1., scf_phi_prime_today_sign_val = 1.;
     int flag_scf_params = _FALSE_;
     int flag_scf_potential = _FALSE_;
+    int flag_scf_conformal_form = _FALSE_;
     int flag_scf_coupling = _FALSE_;
     int flag_scf_shoot_target = _FALSE_;
+    int flag_scf_ic_from_today = _FALSE_;
     int flag_scf_use_conformal = _FALSE_, flag_scf_use_disformal = _FALSE_;
-    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_;
+    int flag_scf_use_entropy = _FALSE_, flag_scf_use_momentum = _FALSE_, flag_scf_interacting_radiation = _FALSE_;
     int flag_V0 = _FALSE_, flag_lambda = _FALSE_;
     int flag_V0_2 = _FALSE_, flag_lambda_2 = _FALSE_;
     int flag_C0 = _FALSE_, flag_beta = _FALSE_, flag_alpha = _FALSE_, flag_D0 = _FALSE_;
+    int flag_C0_r = _FALSE_, flag_beta_r = _FALSE_;
     int flag_gamma0 = _FALSE_, flag_gamma_legacy = _FALSE_, flag_log10minus_gamma0 = _FALSE_, flag_log10minus_gamma_legacy = _FALSE_;
     int flag_g0 = _FALSE_, flag_h0 = _FALSE_;
     int flag_As = _FALSE_, flag_ns = _FALSE_, flag_kp = _FALSE_, flag_kc = _FALSE_, flag_pc = _FALSE_;
     int flag_phi_ini = _FALSE_, flag_phi_prime_ini = _FALSE_;
+    int flag_phi_today = _FALSE_, flag_w_today = _FALSE_, flag_phi_prime_today_sign = _FALSE_;
     int flag_explicit = _FALSE_;
     int flag_explicit_potential = _FALSE_;
     int flag_explicit_entropy = _FALSE_;
@@ -3555,6 +3635,39 @@ int input_read_parameters_species(struct file_content * pfc,
       else {
         class_stop(errmsg, "scf_potential has to be 'exp' or 'double_exp', but you entered %s.", string1);
       }
+    }
+
+    class_call(parser_read_string(pfc,
+                                  "scf_conformal_form",
+                                  &string1,
+                                  &flag_scf_conformal_form,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_conformal_form == _TRUE_) {
+      if ((strstr(string1,"matter_exp") != NULL) || (strstr(string1,"MATTER_EXP") != NULL) ||
+          (strstr(string1,"matter-exponential") != NULL) || (strstr(string1,"MATTER-EXPONENTIAL") != NULL) ||
+          (strstr(string1,"distance") != NULL) || (strstr(string1,"DISTANCE") != NULL)) {
+        pba->scf_conformal_form = scf_conformal_matter_exp;
+      }
+      else if ((strstr(string1,"exp") != NULL) || (strstr(string1,"EXP") != NULL) ||
+               (strstr(string1,"exponential") != NULL) || (strstr(string1,"EXPONENTIAL") != NULL)) {
+        pba->scf_conformal_form = scf_conformal_exp;
+      }
+      else {
+        class_stop(errmsg, "scf_conformal_form has to be 'exponential' or 'matter_exp', but you entered %s.", string1);
+      }
+    }
+
+    class_call(parser_read_string(pfc,
+                                  "scf_ic_from_today",
+                                  &string1,
+                                  &flag_scf_ic_from_today,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_ic_from_today == _TRUE_) {
+      pba->scf_ic_from_today = (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) ? _TRUE_ : _FALSE_;
     }
 
     class_call(parser_read_string(pfc,
@@ -3642,11 +3755,24 @@ int input_read_parameters_species(struct file_content * pfc,
       else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_use_momentum = _FALSE_;
       else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_use_momentum'.", string1);
     }
+    class_call(parser_read_string(pfc,
+                                  "scf_interacting_radiation",
+                                  &string1,
+                                  &flag_scf_interacting_radiation,
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if (flag_scf_interacting_radiation == _TRUE_) {
+      if (string_begins_with(string1,'y') || string_begins_with(string1,'Y')) pba->scf_interacting_radiation = _TRUE_;
+      else if (string_begins_with(string1,'n') || string_begins_with(string1,'N')) pba->scf_interacting_radiation = _FALSE_;
+      else class_stop(errmsg,"incomprehensible input '%s' for the field 'scf_interacting_radiation'.", string1);
+    }
     {
       int scf_q_sector_requested = ((pba->scf_use_conformal == _TRUE_) || (pba->scf_use_disformal == _TRUE_)) ? 1 : 0;
       int scf_sector_count = scf_q_sector_requested
         + ((pba->scf_use_entropy == _TRUE_) ? 1 : 0)
-        + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0);
+        + ((pba->scf_use_momentum == _TRUE_) ? 1 : 0)
+        + ((pba->scf_interacting_radiation == _TRUE_) ? 1 : 0);
 
       class_test((scf_sector_count > 1) && (pba->scf_allow_multiple_couplings == _FALSE_),
                  errmsg,
@@ -3787,6 +3913,12 @@ int input_read_parameters_species(struct file_content * pfc,
     class_call(parser_read_double(pfc,"scf_D0",&scf_D0_val,&flag_D0,errmsg),
                errmsg,
                errmsg);
+    class_call(parser_read_double(pfc,"scf_C0_r",&scf_C0_r_val,&flag_C0_r,errmsg),
+               errmsg,
+               errmsg);
+    class_call(parser_read_double(pfc,"scf_beta_r",&scf_beta_r_val,&flag_beta_r,errmsg),
+               errmsg,
+               errmsg);
     class_call(parser_read_double(pfc,"scf_gamma0",&scf_gamma0_val,&flag_gamma0,errmsg),
                errmsg,
                errmsg);
@@ -3837,8 +3969,21 @@ int input_read_parameters_species(struct file_content * pfc,
     class_call(parser_read_double(pfc,"scf_phi_prime_ini",&scf_phi_prime_ini_val,&flag_phi_prime_ini,errmsg),
                errmsg,
                errmsg);
+    class_call(parser_read_double(pfc,"scf_phi_today",&scf_phi_today_val,&flag_phi_today,errmsg),
+               errmsg,
+               errmsg);
+    class_call(parser_read_double(pfc,"scf_w_phi_today",&scf_w_today_val,&flag_w_today,errmsg),
+               errmsg,
+               errmsg);
+    class_call(parser_read_double(pfc,"scf_phi_prime_today_sign",&scf_phi_prime_today_sign_val,&flag_phi_prime_today_sign,errmsg),
+               errmsg,
+               errmsg);
+    if (flag_phi_today == _TRUE_) pba->phi_today_scf = scf_phi_today_val;
+    if (flag_w_today == _TRUE_) pba->w_today_scf = scf_w_today_val;
+    if (flag_phi_prime_today_sign == _TRUE_) pba->phi_prime_today_sign_scf = scf_phi_prime_today_sign_val;
     // ET: if any of the explicit parameters are set, we will ignore scf_parameters and use these instead
     flag_explicit_potential = (flag_V0 || flag_lambda || flag_V0_2 || flag_lambda_2 || flag_C0 || flag_beta || flag_alpha || flag_D0 ||
+                               flag_C0_r || flag_beta_r ||
                                flag_gamma0 || flag_gamma_legacy || flag_log10minus_gamma0 || flag_log10minus_gamma_legacy);
     flag_explicit_entropy = (flag_g0 || flag_h0 || flag_As || flag_ns || flag_kp || flag_kc || flag_pc);
     flag_explicit = (flag_explicit_potential || flag_explicit_entropy || flag_phi_ini || flag_phi_prime_ini);
@@ -3931,6 +4076,8 @@ int input_read_parameters_species(struct file_content * pfc,
       if (flag_beta == _TRUE_) pba->beta_scf = scf_beta_val;
       if (flag_alpha == _TRUE_) pba->alpha_scf = scf_alpha_val;
       if (flag_D0 == _TRUE_) pba->D0_scf = scf_D0_val;
+      if (flag_C0_r == _TRUE_) pba->C0_r_scf = scf_C0_r_val;
+      if (flag_beta_r == _TRUE_) pba->beta_r_scf = scf_beta_r_val;
       if (flag_phi_ini == _TRUE_) pba->phi_ini_scf = scf_phi_ini_val;
       if (flag_phi_prime_ini == _TRUE_) pba->phi_prime_ini_scf = scf_phi_prime_ini_val;
     }
@@ -3970,11 +4117,23 @@ int input_read_parameters_species(struct file_content * pfc,
           pba->phi_prime_ini_scf = pba->scf_parameters[pba->scf_parameters_size-1];
         }
         else {
-          class_test((flag_phi_ini == _FALSE_) || (flag_phi_prime_ini == _FALSE_),
+          class_test((pba->scf_ic_from_today == _FALSE_) &&
+                     ((flag_phi_ini == _FALSE_) || (flag_phi_prime_ini == _FALSE_)),
                      errmsg,
-                     "Since you are not using attractor initial conditions, you must specify scf_phi_ini and scf_phi_prime_ini or provide scf_parameters for ICs.");
+                     "Since you are not using attractor initial conditions, you must specify scf_phi_ini and scf_phi_prime_ini, provide scf_parameters for ICs, or set scf_ic_from_today=yes.");
         }
       }
+    }
+    if (pba->scf_ic_from_today == _TRUE_) {
+      class_test(pba->scf_potential != scf_potential_exp,
+                 errmsg,
+                 "scf_ic_from_today is currently implemented for scf_potential=exp.");
+      class_test((pba->w_today_scf <= -1.) || (pba->w_today_scf >= 1.),
+                 errmsg,
+                 "scf_w_phi_today must lie in (-1,1) for a canonical scalar field.");
+      class_test(pba->Omega0_scf <= 0.,
+                 errmsg,
+                 "scf_ic_from_today requires Omega_scf > 0 after the budget equation.");
     }
 
     /** 8.b.6) ET: Coupling parameter checks: Add warning instead of error */
@@ -6601,12 +6760,15 @@ int input_default_params(struct background *pba,
   pba->scf_parameters_size = 0;
   pba->use_scf_parameters = _TRUE_;
   pba->scf_potential = scf_potential_exp;
+  pba->scf_conformal_form = scf_conformal_exp;
   pba->scf_coupling = scf_coupling_none;
+  pba->scf_ic_from_today = _FALSE_;
   pba->scf_allow_multiple_couplings = _FALSE_;
   pba->scf_use_conformal = _FALSE_;
   pba->scf_use_disformal = _FALSE_;
   pba->scf_use_entropy = _FALSE_;
   pba->scf_use_momentum = _FALSE_;
+  pba->scf_interacting_radiation = _FALSE_;
   pba->has_idm_de = _FALSE_;
   pba->has_idm_de_q = _FALSE_;
   pba->has_qcdm_de = _FALSE_;
@@ -6615,6 +6777,7 @@ int input_default_params(struct background *pba,
   pba->has_scf_disformal = _FALSE_;
   pba->has_scf_entropy = _FALSE_;
   pba->has_scf_momentum = _FALSE_;
+  pba->has_scf_radiation = _FALSE_;
   pba->scf_shooting_target = scf_shoot_none;
   pba->V0_scf = 0.;
   pba->lambda_scf = 0.;
@@ -6624,6 +6787,11 @@ int input_default_params(struct background *pba,
   pba->C0_scf = 0.;
   pba->alpha_scf = 0.;
   pba->D0_scf = 0.;
+  pba->C0_r_scf = 0.;
+  pba->beta_r_scf = 0.;
+  pba->phi_today_scf = 0.;
+  pba->w_today_scf = -1.;
+  pba->phi_prime_today_sign_scf = 1.;
   pba->scf_gamma0 = 0.;
   /* ET: entropy-coupling/source defaults */
   pba->g0_scf = 0.;

@@ -17,6 +17,9 @@ enum equation_of_state {CLP,EDE};
 /** ET: scalar field potential types */
 enum scf_potential_type {scf_potential_exp, scf_potential_double_exp};
 
+/** ET: scalar field conformal coupling function types */
+enum scf_conformal_form_type {scf_conformal_exp, scf_conformal_matter_exp};
+
 /** ET: scalar field coupling types */
 enum scf_coupling_type {
   scf_coupling_none,
@@ -154,13 +157,16 @@ struct background
   int scf_parameters_size; /**< size of scf_parameters */
   short use_scf_parameters; /**< ET: whether to use scf_parameters rather than explicit scf_* inputs */
   enum scf_potential_type scf_potential; /**< ET: scalar field potential type */
+  enum scf_conformal_form_type scf_conformal_form; /**< ET: conformal coupling function type */
   enum scf_coupling_type scf_coupling; /**< ET: scalar field coupling type */
   enum scf_shooting_target_type scf_shooting_target; /**< ET: shooting target when using explicit scf_* inputs */
+  short scf_ic_from_today; /**< ET: reconstruct scalar/qcdm initial conditions from today boundary values */
   short scf_allow_multiple_couplings; /**< ET: allow more than one scalar-field coupling sector */
   short scf_use_conformal; /**< ET: requested conformal scalar-field coupling */
   short scf_use_disformal; /**< ET: requested disformal scalar-field coupling */
   short scf_use_entropy; /**< ET: requested entropy scalar-field coupling */
   short scf_use_momentum; /**< ET: requested momentum scalar-field coupling */
+  short scf_interacting_radiation; /**< ET: requested scalar-field coupling to dark radiation */
   short has_idm_de; /**< ET: legacy IDM/SCF coupling flag; kept off when using qcdm */
   short has_idm_de_q; /**< ET: legacy Q_scf-sector coupling flag; kept off when using qcdm */
   short has_qcdm_de; /**< ET: coupling between qcdm and scalar field */
@@ -169,6 +175,7 @@ struct background
   short has_scf_disformal; /**< ET: disformal coupling active */
   short has_scf_entropy; /**< ET: entropy coupling active */
   short has_scf_momentum; /**< ET: momentum coupling active */
+  short has_scf_radiation; /**< ET: radiation coupling active */
   double V0_scf;        /**< ET: scalar field potential amplitude */
   double lambda_scf;    /**< ET: scalar field potential slope */
   double V0_scf_2;      /**< ET: second exponential amplitude */
@@ -177,6 +184,11 @@ struct background
   double C0_scf;        /**< ET: conformal coupling amplitude */
   double alpha_scf;     /**< ET: disformal coupling strength */
   double D0_scf;        /**< ET: disformal coupling scale (in meV^-1) */
+  double C0_r_scf;      /**< ET: radiation coupling amplitude */
+  double beta_r_scf;    /**< ET: radiation coupling exponent coefficient */
+  double phi_today_scf; /**< ET: scalar field value today for reconstructed ICs */
+  double w_today_scf; /**< ET: scalar field equation of state today for reconstructed ICs */
+  double phi_prime_today_sign_scf; /**< ET: sign of phi' today for reconstructed ICs */
   double scf_gamma0;      /**< ET: momentum-coupling strength (Type-3 gamma) */
   /* ET: entropy-coupling/source parameters (coupled through QCDM) */
   double g0_scf;        /**< entropy force coefficient entering g_scf(phi) */
@@ -280,6 +292,9 @@ struct background
   int index_bg_dD_scf;        /**< scalar field disformal factor derivative D' */
   int index_bg_ddD_scf;       /**< scalar field disformal factor second derivative D'' */
   int index_bg_Q_scf;         /**< scalar field coupling function */
+  int index_bg_A_r_scf;       /**< scalar field radiation coupling A_r */
+  int index_bg_dA_r_scf;      /**< scalar field radiation coupling derivative A_r' */
+  int index_bg_ddA_r_scf;     /**< scalar field radiation coupling second derivative A_r'' */
   int index_bg_B_cff_scf;     /**< scf scalar field perturbed coupling denominator */
   int index_bg_B1_scf;        /**< scf scalar field perturbed coupling delta_c factor */
   int index_bg_B2_scf;        /**< scf scalar field perturbed coupling Phi' factor */
@@ -758,6 +773,21 @@ extern "C" {
                   struct background *pba,
                   double phi
                   );
+
+  double A_r_scf(
+                 struct background *pba,
+                 double phi
+                 );
+
+  double dA_r_scf(
+                  struct background *pba,
+                  double phi
+                  );
+
+  double ddA_r_scf(
+                   struct background *pba,
+                   double phi
+                   );
   
   /* ET: disformal factor and its derivatives */
 
