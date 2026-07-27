@@ -775,14 +775,30 @@ int input_shooting(struct file_content * pfc,
     /** Set status of shooting */
     pba->shooting_failed = shooting_failed;
 
-    for (counter = 0; counter < unknown_parameters_size; counter++){
-      if (fzw.unknown_parameters_index[counter] < original_fc_size) {
-        strcpy(pfc->value[fzw.unknown_parameters_index[counter]],
-               fzw.fc.value[fzw.unknown_parameters_index[counter]]);
-      }
-    }
+    {
+      int next_new_parameter_index = original_fc_size;
 
-    parser_copy(&(fzw.fc), pfc, pfc->size - unknown_parameters_size, pfc->size);
+      for (counter = 0; counter < unknown_parameters_size; counter++){
+        if (fzw.unknown_parameters_index[counter] < original_fc_size) {
+          strcpy(pfc->value[fzw.unknown_parameters_index[counter]],
+                 fzw.fc.value[fzw.unknown_parameters_index[counter]]);
+        }
+        else {
+          int source_index = fzw.unknown_parameters_index[counter];
+          memcpy(pfc->name[next_new_parameter_index],
+                 fzw.fc.name[source_index],
+                 sizeof(FileArg));
+          memcpy(pfc->value[next_new_parameter_index],
+                 fzw.fc.value[source_index],
+                 sizeof(FileArg));
+          pfc->read[next_new_parameter_index] = fzw.fc.read[source_index];
+          next_new_parameter_index++;
+        }
+      }
+
+      /* Discard extension slots reserved for unknowns that were already input. */
+      pfc->size = next_new_parameter_index;
+    }
 
     /** Free arrays allocated */
     class_call(parser_free(&(fzw.fc)),
