@@ -1226,8 +1226,14 @@ int numjac(
   jac->new_jacobian = _TRUE_;
 
   for(j=1;j<=neq;j++){
+    class_test((isfinite(y[j]) == 0) || (isfinite(fval[j]) == 0),
+               error_message,
+               "numjac received a non-finite state or derivative at equation %d: y=%e, f=%e",
+               j,y[j],fval[j]);
     nj_ws->yscale[j] = MAX(fabs(y[j]),thresh);
     nj_ws->del[j] = (y[j] + fac[j] * nj_ws->yscale[j]) - y[j];
+    nj_ws->Rowmax[j] = 1;
+    nj_ws->Difmax[j] = 0.;
   }
 
   /*Select an increment del for a difference approximation to
@@ -1236,20 +1242,18 @@ int numjac(
   */
   for(j=1;j<=neq;j++){
     if (nj_ws->del[j]==0.0){
-      for(;;){
-    if (fac[j] < facmax){
-      fac[j] = MIN(100*fac[j],facmax);
-      nj_ws->del[j] = (y[j] + fac[j]*nj_ws->yscale[j]) - y[j];
-      if(nj_ws->del[j]==0.0){
-        break;
+      while ((nj_ws->del[j] == 0.0) && (fac[j] < facmax)) {
+        fac[j] = MIN(100*fac[j],facmax);
+        nj_ws->del[j] = (y[j] + fac[j]*nj_ws->yscale[j]) - y[j];
+      }
+      if (nj_ws->del[j] == 0.0) {
+        nj_ws->del[j] = thresh;
       }
     }
-    else{
-      nj_ws->del[j] = thresh;
-      break;
-    }
-      }
-    }
+    class_test((isfinite(nj_ws->del[j]) == 0) || (nj_ws->del[j] == 0.0),
+               error_message,
+               "numjac could not construct a finite, non-zero increment for equation %d: y=%e, scale=%e, fac=%e, del=%e",
+               j,y[j],nj_ws->yscale[j],fac[j],nj_ws->del[j]);
   }
 
   /* keep del pointing into region: */
@@ -1306,7 +1310,13 @@ int numjac(
                error_message,error_message);
 
     *nfe+=1;
-    for(i=1;i<=neq;i++) nj_ws->ydel_Fdel[i][j] = nj_ws->ffdel[i];
+    for(i=1;i<=neq;i++) {
+      class_test(isfinite(nj_ws->ffdel[i]) == 0,
+                 error_message,
+                 "numjac obtained a non-finite derivative at equation %d while perturbing Jacobian column %d: f=%e",
+                 i,j,nj_ws->ffdel[i]);
+      nj_ws->ydel_Fdel[i][j] = nj_ws->ffdel[i];
+    }
   }
 
 
@@ -1404,6 +1414,10 @@ int numjac(
           Fdiff_new=0.0;
           Fdiff_absrm = 0.0;
           for(i=1;i<=neq;i++){
+            class_test(isfinite(nj_ws->ffdel[i]) == 0,
+                       error_message,
+                       "numjac obtained a non-finite derivative at equation %d while refining Jacobian column %d: f=%e",
+                       i,j,nj_ws->ffdel[i]);
             Fdiff_absrm = MAX(Fdiff_absrm,fabs(Fdiff_new));
             Fdiff_new = nj_ws->ffdel[i]-fval[i];
             nj_ws->tmp[i] = Fdiff_new/del2;

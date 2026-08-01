@@ -631,7 +631,12 @@ int background_functions(
   if (pba->has_idr == _TRUE_) {
     pvecback[pba->index_bg_rho_idr] = pba->Omega0_idr * pow(pba->H0,2) / pow(a,4);
     if (pba->has_scf_radiation == _TRUE_) {
-      pvecback[pba->index_bg_rho_idr] *= A_r_scf(pba,phi);
+      double A_r = A_r_scf(pba,phi);
+      class_test((isfinite(A_r) == 0) || (A_r <= 0.),
+                 pba->error_message,
+                 "A_r(phi) = %e must be finite and strictly positive at phi = %e.",
+                 A_r,phi);
+      pvecback[pba->index_bg_rho_idr] *= A_r;
     }
     rho_tot += pvecback[pba->index_bg_rho_idr];
     p_tot += (1./3.) * pvecback[pba->index_bg_rho_idr];
@@ -642,7 +647,11 @@ int background_functions(
       only place where the Friedmann equation is assumed. Remember
       that densities are all expressed in units of \f$ [3c^2/8\pi G] \f$, ie
       \f$ \rho_{class} = [8 \pi G \rho_{physical} / 3 c^2]\f$ */
-  pvecback[pba->index_bg_H] = sqrt(rho_tot-pba->K/a/a);
+  rho_crit = rho_tot-pba->K/a/a;
+  class_test((isfinite(rho_crit) == 0) || (rho_crit <= 0.),
+             pba->error_message,
+             "rho_crit = %e must be finite and strictly positive",rho_crit);
+  pvecback[pba->index_bg_H] = sqrt(rho_crit);
 
   /** - compute derivative of H with respect to conformal time */
   pvecback[pba->index_bg_H_prime] = - (3./2.) * (rho_tot + p_tot) * a + pba->K/a;
@@ -698,12 +707,6 @@ int background_functions(
     }
     pvecback[pba->index_bg_p_tot_prime] += pvecback[pba->index_bg_p_prime_scf];
   }
-
-  /** - compute critical density */
-  rho_crit = rho_tot-pba->K/a/a;
-  class_test(rho_crit <= 0.,
-             pba->error_message,
-             "rho_crit = %e instead of strictly positive",rho_crit);
 
   /** - compute relativistic density to total density ratio */
   pvecback[pba->index_bg_Omega_r] = rho_r / rho_crit;
@@ -3041,6 +3044,7 @@ int background_derivs(
   struct background_parameters_and_workspace * pbpaw;
   struct background * pba;
   double * pvecback, a, H, rho_M;
+  int index_bi;
 
   pbpaw = parameters_and_workspace;
   pba =  pbpaw->pba;
@@ -3109,13 +3113,22 @@ int background_derivs(
     }
     if (pba->has_scf_radiation == _TRUE_) {
       double A_r = A_r_scf(pba,y[pba->index_bi_phi_scf]);
-      class_test(A_r <= 0.,
+      double dA_r;
+      class_test((isfinite(A_r) == 0) || (A_r <= 0.),
                  error_message,
-                 "A_r(phi) = %e must stay positive.", A_r);
+                 "A_r(phi) = %e must stay finite and positive.", A_r);
+      dA_r = dA_r_scf(pba,y[pba->index_bi_phi_scf]);
+      class_test(isfinite(dA_r) == 0,
+                 error_message,
+                 "dA_r/dphi = %e must stay finite.", dA_r);
       /* rho_idr stores A_r rho_bar_r. CLASS density units give
          V_eff,phi = V_phi + rho_bar_r A_r,phi as Q = -3 rho_bar_r A_r,phi. */
       Q_bg_scf += -3.0*(pvecback[pba->index_bg_rho_idr]/A_r)*
-        dA_r_scf(pba,y[pba->index_bi_phi_scf]);
+        dA_r;
+      class_test(isfinite(Q_bg_scf) == 0,
+                 error_message,
+                 "The scalar-field background source became non-finite: Q=%e.",
+                 Q_bg_scf);
     }
 
     dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
@@ -3156,6 +3169,13 @@ int background_derivs(
     else {
       dy[pba->index_bi_rho_qcdm] = -3.*y[pba->index_bi_rho_qcdm];
     }
+  }
+
+  for (index_bi=0; index_bi<pba->bi_size; index_bi++) {
+    class_test(isfinite(dy[index_bi]) == 0,
+               error_message,
+               "Background derivative %d became non-finite at a=%e: y=%e, dy=%e",
+               index_bi,a,y[index_bi],dy[index_bi]);
   }
 
   return _SUCCESS_;
