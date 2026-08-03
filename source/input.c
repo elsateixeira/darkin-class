@@ -4144,9 +4144,9 @@ int input_read_parameters_species(struct file_content * pfc,
       class_test(pba->scf_potential != scf_potential_exp,
                  errmsg,
                  "scf_ic_from_today is currently implemented for scf_potential=exp.");
-      class_test((pba->w_today_scf <= -1.) || (pba->w_today_scf >= 1.),
+      class_test((pba->w_today_scf < -1.) || (pba->w_today_scf >= 1.),
                  errmsg,
-                 "scf_w_phi_today must lie in (-1,1) for a canonical scalar field.");
+                 "scf_w_phi_today must lie in [-1,1) for a canonical scalar field.");
       class_test(pba->Omega0_scf <= 0.,
                  errmsg,
                  "scf_ic_from_today requires Omega_scf > 0 after the budget equation.");
