@@ -3302,20 +3302,18 @@ int input_read_parameters_species(struct file_content * pfc,
   }
 
   /** 7.2.2.g) idr_nature */
-  if (pba->T_idr > 0) {
-    class_call(parser_read_string(pfc,"idr_nature",&string1,&flag1,errmsg),
-               errmsg,
-               errmsg);
-    if (flag1 == _TRUE_) {
-      if ((strstr(string1,"free_streaming") != NULL) || (strstr(string1,"Free_Streaming") != NULL) || (strstr(string1,"Free_streaming") != NULL) || (strstr(string1,"FREE_STREAMING") != NULL)) {
-        ppt->idr_nature = idr_free_streaming;
-      }
-      else if ((strstr(string1,"fluid") != NULL) || (strstr(string1,"Fluid") != NULL) || (strstr(string1,"FLUID") != NULL)) {
-        ppt->idr_nature = idr_fluid;
-      }
-      else {
-        class_stop(errmsg, "idr_nature has to be either free_streaming or fluid, but you entered %s.", string1);
-      }
+  class_call(parser_read_string(pfc,"idr_nature",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  if (flag1 == _TRUE_) {
+    if ((strstr(string1,"free_streaming") != NULL) || (strstr(string1,"Free_Streaming") != NULL) || (strstr(string1,"Free_streaming") != NULL) || (strstr(string1,"FREE_STREAMING") != NULL)) {
+      ppt->idr_nature = idr_free_streaming;
+    }
+    else if ((strstr(string1,"fluid") != NULL) || (strstr(string1,"Fluid") != NULL) || (strstr(string1,"FLUID") != NULL)) {
+      ppt->idr_nature = idr_fluid;
+    }
+    else {
+      class_stop(errmsg, "idr_nature has to be either free_streaming or fluid, but you entered %s.", string1);
     }
   }
 
