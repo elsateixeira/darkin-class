@@ -1402,6 +1402,15 @@ int input_get_guess(double *xguess,
       break;
     case scf_phi_today:
       xguess[index_guess] = ba.phi_ini_scf;
+      if ((ba.scf_use_conformal == _TRUE_) &&
+          (ba.scf_conformal_form == scf_conformal_matter_exp)) {
+        /* For A_m = 1+C0(1-exp(-beta phi)), the displacement needed
+           to return to a fixed phi_today grows approximately with the
+           initial conformal force C0*beta.  The coefficient spans the
+           Newton basin over the coupling range relevant to this model;
+           the exact uncoupled limit remains unchanged. */
+        xguess[index_guess] += 6.0*ba.C0_scf*ba.beta_scf;
+      }
       dxdy[index_guess] = 0.1;
       break;
     case scf_w_phi_today:
@@ -1441,8 +1450,11 @@ int input_get_guess(double *xguess,
       dxdy[index_guess] = 1.0;
       break;
     case omega_qcdm:
-      xguess[index_guess] = pfzw->target_value[index_guess]/ba.h/ba.h;
-      dxdy[index_guess] = 0.1;
+      /* The unknown is omega_ini_qcdm, which input_read_parameters later
+         converts to Omega_ini_qcdm by dividing by h^2.  Seed it in omega
+         units, consistently with the requested present-day omega_qcdm. */
+      xguess[index_guess] = pfzw->target_value[index_guess];
+      dxdy[index_guess] = 1.0;
       break;
     case sigma8:
       /* Assume linear relationship between A_s and sigma8 and fix coefficient
@@ -1522,6 +1534,12 @@ int input_try_unknown_parameters(double * unknown_parameter,
   // This needs to be done with enough accuracy. A standard double has a relative
   // precision of around 1e-16, so 1e-20 should be good enough for the shooting
   for (i=0; i < unknown_parameters_size; i++) {
+    class_test(((pfzw->target_name[i] == theta_s) ||
+                (pfzw->target_name[i] == theta_s_100)) &&
+               (unknown_parameter[i] <= 0.),
+               errmsg,
+               "shooting trial has non-positive h = %.16e",
+               unknown_parameter[i]);
     class_sprintf(pfzw->fc.value[pfzw->unknown_parameters_index[i]],"%.20e",unknown_parameter[i]);
   }
 

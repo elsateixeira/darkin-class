@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 	   th.thermodynamics_table[i*th.th_size+th.index_th_ddg],
 	   th.thermodynamics_table[i*th.th_size+th.index_th_Tb],
 	   th.thermodynamics_table[i*th.th_size+th.index_th_cb2],
-	   th.thermodynamics_table[i*th.th_size+th.index_th_tau_d],
+	   th.thermodynamics_table[i*th.th_size+th.index_th_kappa_b],
 	   th.thermodynamics_table[i*th.th_size+th.index_th_rate]
 	   );
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 	   pvecthermo[th.index_th_ddg],
 	   pvecthermo[th.index_th_Tb],
 	   pvecthermo[th.index_th_cb2],
-	   pvecthermo[th.index_th_tau_d],
+	   pvecthermo[th.index_th_kappa_b],
 	   pvecthermo[th.index_th_rate]
 	   );
 

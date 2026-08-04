@@ -1080,16 +1080,23 @@ int fzero_Newton(int (*func)(double *x,
                  void *param,
                  int *fevals,
                  ErrorMsg error_message){
-  /**Given an initial guess x[1..n] for a root in n dimensions,
-     take ntrial Newton-Raphson steps to improve the root.
-     Stop if the root converges in either summed absolute
-     variable increments tolx or summed absolute function values tolf.*/
-  int k,i,j,*indx, ntrial=20;
+  /** Given an initial guess x[1..n] for a root in n dimensions,
+      take safeguarded Newton-Raphson steps to improve the root.
+      Convergence requires the summed absolute function values to satisfy
+      tolF; tolx only detects a small update that must pass the same residual
+      check. */
+  int k,i,j,*indx, ntrial=30;
   double errx,errf,d,*F0,*Fdel,**Fjac,*p, *lu_work;
   int has_converged = _FALSE_;
   int funcreturn;
   double toljac = 1e-3;
   double *delx;
+  /* robustness additions: retry shrinking for Jacobian probes, damped
+     (backtracking) Newton update, optional iteration tracing */
+  int jr, accepted, attempt, attempt_failed;
+  double alpha, err2, err2_try, jit, *x_try, *Ftry, *delx0, *x_orig;
+  ErrorMsg errcpy;
+  int shoot_debug = (getenv("CLASS_SHOOT_DEBUG") != NULL);
 
   /** All arrays are indexed as [0, n-1] with the exception of p, indx,
       lu_work and Fjac, since they are passed to ludcmp and lubksb. */
@@ -1106,69 +1113,169 @@ int fzero_Newton(int (*func)(double *x,
   class_alloc(F0, sizeof(double)*x_size, error_message);
   class_alloc(delx, sizeof(double)*x_size, error_message);
   class_alloc(Fdel, sizeof(double)*x_size, error_message);
+  class_alloc(x_try, sizeof(double)*x_size, error_message);
+  class_alloc(Ftry, sizeof(double)*x_size, error_message);
+  class_alloc(delx0, sizeof(double)*x_size, error_message);
 
   for (i=1; i<=x_size; i++){
-    delx[i-1] = toljac*dxdF[i-1];
+    delx0[i-1] = toljac*dxdF[i-1];
+    delx[i-1] = delx0[i-1];
   }
 
-  for (k=1;k<=ntrial;k++) {
-    /** Compute F(x): */
-    /**printf("x = [%f, %f], delx = [%e, %e]\n",
-       x_inout[0],x_inout[1],delx[0],delx[1]);*/
-    class_call(func(x_inout, x_size, param, F0, error_message),
-               error_message, error_message);
-    /**    printf("F0 = [%f, %f]\n",F0[0],F0[1]);*/
-    *fevals = *fevals + 1;
-    errf=0.0; //fvec and Jacobian matrix in fjac.
+  class_alloc(x_orig, sizeof(double)*x_size, error_message);
+  for (i=1; i<=x_size; i++)
+    x_orig[i-1] = x_inout[i-1];
+  snprintf(errcpy, sizeof(ErrorMsg), "did not converge within the iteration limit");
+
+  /** Try the Newton iteration from the caller's guess and, on failure, from
+      a small deterministic set of jittered guesses.  A hard failure of one
+      trajectory no longer kills the whole root search. */
+  for (attempt=0; attempt<3; attempt++){
+    jit = (attempt==0) ? 0.0 : ((attempt==1) ? +0.05 : -0.05);
+    attempt_failed = _FALSE_;
     for (i=1; i<=x_size; i++)
-      errf += fabs(F0[i-1]); //Check function convergence.
-    if (errf <= tolF){
-      has_converged = _TRUE_;
-      break;
+      x_inout[i-1] = (x_orig[i-1] != 0.0) ? x_orig[i-1]*(1.0+jit) : jit;
+    if (shoot_debug && attempt>0)
+      fprintf(stderr,"fzero_Newton: restarting from jittered guess, attempt %d (jitter %+.2f)\n",
+              attempt,jit);
+
+    /** Evaluate F at this guess. */
+    funcreturn = func(x_inout, x_size, param, F0, error_message);
+    *fevals = *fevals + 1;
+    if (funcreturn == _FAILURE_){
+      strncpy(errcpy, error_message, sizeof(ErrorMsg)-1);
+      errcpy[sizeof(ErrorMsg)-1] = '\0';
+      continue;
     }
 
-    /**
-    if (k==1){
+    for (k=1;k<=ntrial;k++) {
+      errf=0.0;
+      for (i=1; i<=x_size; i++)
+        errf += fabs(F0[i-1]); //Check function convergence.
+      if (shoot_debug) {
+        fprintf(stderr,"fzero_Newton iter %d: errf=%.3e, x = [",k,errf);
+        for (i=1; i<=x_size; i++) fprintf(stderr,"%s%.8e",(i>1)?", ":"",x_inout[i-1]);
+        fprintf(stderr,"]\n");
+      }
+      if (errf <= tolF){
+        has_converged = _TRUE_;
+        break;
+      }
+
+      /** Compute the jacobian of F.  A perturbed evaluation can land on a
+          background that fails to integrate; shrink the finite-difference
+          step and retry instead of aborting the whole root search.  The step
+          is re-initialized from delx0 at every iteration so that shrinking
+          near a boundary does not permanently degrade the Jacobian. */
       for (i=1; i<=x_size; i++){
-        delx[i-1] *= F0[i-1];
+        delx[i-1] = (F0[i-1]<0.0) ? -delx0[i-1] : delx0[i-1];
+        funcreturn = _FAILURE_;
+        for (jr=0; jr<5; jr++){
+          x_inout[i-1] += delx[i-1];
+          funcreturn = func(x_inout, x_size, param, Fdel, error_message);
+          x_inout[i-1] -= delx[i-1];
+          *fevals = *fevals + 1;
+          if (funcreturn == _SUCCESS_) break;
+          if (shoot_debug)
+            fprintf(stderr,"fzero_Newton iter %d: jacobian probe %d failed, shrinking delx to %.3e\n",
+                    k,i,0.5*delx[i-1]);
+          delx[i-1] *= 0.5;
+        }
+        if (funcreturn == _FAILURE_) {
+          strncpy(errcpy, error_message, sizeof(ErrorMsg)-1);
+          errcpy[sizeof(ErrorMsg)-1] = '\0';
+          attempt_failed = _TRUE_;
+          break;
+        }
+        for (j=1; j<=x_size; j++)
+          Fjac[j][i] = (Fdel[j-1]-F0[j-1])/delx[i-1];
+      }
+      if (attempt_failed == _TRUE_) break;
+
+      for (i=1; i<=x_size; i++)
+        p[i] = -F0[i-1]; //Right-hand side of linear equations.
+      funcreturn = ludcmp(Fjac, x_size, indx, &d, lu_work); //Solve linear equations using LU decomposition.
+      if (funcreturn == _FAILURE_){
+        snprintf(errcpy, sizeof(ErrorMsg), "singular Jacobian in ludcmp");
+        attempt_failed = _TRUE_;
+        break;
+      }
+      funcreturn = lubksb(Fjac, x_size, indx, p);
+      if (funcreturn == _FAILURE_){
+        snprintf(errcpy, sizeof(ErrorMsg), "singular Jacobian in lubksb");
+        attempt_failed = _TRUE_;
+        break;
+      }
+
+      /** Damped Newton update with backtracking line search: attempt the full
+          step, and halve it while the trial point either fails to produce a
+          computable model or increases the residual.  Accepting only
+          descending steps prevents the iteration from wandering into
+          unphysical regions (which is how strongly coupled scalar models used
+          to abort).  The accepted trial also provides F at the new point,
+          saving one evaluation per iteration. */
+      err2 = 0.0;
+      for (i=1; i<=x_size; i++)
+        err2 += F0[i-1]*F0[i-1];
+      alpha = 1.0;
+      accepted = _FALSE_;
+      for (jr=0; jr<12; jr++){
+        for (i=1; i<=x_size; i++)
+          x_try[i-1] = x_inout[i-1] + alpha*p[i];
+        funcreturn = func(x_try, x_size, param, Ftry, error_message);
+        *fevals = *fevals + 1;
+        if (funcreturn == _SUCCESS_){
+          err2_try = 0.0;
+          for (i=1; i<=x_size; i++)
+            err2_try += Ftry[i-1]*Ftry[i-1];
+          /* Newton's direction is a descent direction for the squared
+             residual, so test descent on the 2-norm. */
+          if ((err2_try < err2) || (err2_try <= tolF*tolF)){
+            accepted = _TRUE_;
+            break;
+          }
+          if (shoot_debug)
+            fprintf(stderr,"fzero_Newton iter %d: step computes but |F|^2 %.3e >= %.3e, damping alpha to %.3e\n",
+                    k,err2_try,err2,0.5*alpha);
+        }
+        else if (shoot_debug)
+          fprintf(stderr,"fzero_Newton iter %d: Newton step failed to compute, damping alpha to %.3e\n",
+                  k,0.5*alpha);
+        alpha *= 0.5;
+      }
+      if (accepted == _FALSE_) {
+        snprintf(errcpy, sizeof(ErrorMsg),
+                 "no computable, residual-decreasing Newton step after 12 halvings (residual %.3e)",
+                 errf);
+        attempt_failed = _TRUE_;
+        break;
+      }
+      errx=0.0; //Check root convergence.
+      for (i=1; i<=x_size; i++) { //Update solution.
+        errx += fabs(alpha*p[i]);
+        x_inout[i-1] = x_try[i-1];
+        F0[i-1] = Ftry[i-1];
+      }
+      if (errx <= tolx){
+        /* A backtracked step can be small only because alpha is small.  Such
+           a step indicates convergence only when the updated residual also
+           satisfies the root tolerance; otherwise keep iterating. */
+        errf = 0.0;
+        for (i=1; i<=x_size; i++)
+          errf += fabs(F0[i-1]);
+        if (errf <= tolF){
+          has_converged = _TRUE_;
+          break;
+        }
+        if (shoot_debug)
+          fprintf(stderr,"fzero_Newton iter %d: small damped step (%.3e) with unconverged residual %.3e; continuing\n",
+                  k,errx,errf);
       }
     }
-    */
-
-    /** Compute the jacobian of F: */
-    for (i=1; i<=x_size; i++){
-      if (F0[i-1]<0.0)
-        delx[i-1] *= -1;
-      x_inout[i-1] += delx[i-1];
-
-      /**      printf("x = [%f, %f], delx = [%e, %e]\n",
-               x_inout[0],x_inout[1],delx[0],delx[1]);*/
-      class_call(func(x_inout, x_size, param, Fdel, error_message),
-                 error_message, error_message);
-      /**      printf("F = [%f, %f]\n",Fdel[0],Fdel[1]);*/
-      for (j=1; j<=x_size; j++)
-        Fjac[j][i] = (Fdel[j-1]-F0[j-1])/delx[i-1];
-      x_inout[i-1] -= delx[i-1];
-    }
-    *fevals = *fevals + x_size;
-
-    for (i=1; i<=x_size; i++)
-      p[i] = -F0[i-1]; //Right-hand side of linear equations.
-    funcreturn = ludcmp(Fjac, x_size, indx, &d, lu_work); //Solve linear equations using LU decomposition.
-    class_test(funcreturn == _FAILURE_,error_message,
-               "Failure in ludcmp. Possibly singular matrix!");
-    funcreturn = lubksb(Fjac, x_size, indx, p);
-    class_test(funcreturn == _FAILURE_,error_message,
-               "Failure in lubksb. Possibly singular matrix!");
-    errx=0.0; //Check root convergence.
-    for (i=1; i<=x_size; i++) { //Update solution.
-      errx += fabs(p[i]);
-      x_inout[i-1] += p[i];
-    }
-    if (errx <= tolx){
-      has_converged = _TRUE_;
-      break;
-    }
+    if (has_converged == _TRUE_) break;
+    if (shoot_debug)
+      fprintf(stderr,"fzero_Newton: attempt %d failed (%s)%s\n",
+              attempt,errcpy,(attempt<2)?", retrying":"");
   }
 
   free(p);
@@ -1179,12 +1286,18 @@ int fzero_Newton(int (*func)(double *x,
   free(F0);
   free(delx);
   free(Fdel);
+  free(x_try);
+  free(Ftry);
+  free(delx0);
+  free(x_orig);
 
   if (has_converged == _TRUE_){
     return _SUCCESS_;
   }
   else{
-    class_stop(error_message, "Newton's method failed to converge. Try improving initial guess on the parameters, decrease the tolerance requirements to Newtons method or increase the precision of the input function.\n");
+    class_stop(error_message,
+               "Newton's method failed to converge after 3 seeded attempts. Last failure: %s",
+               errcpy);
   }
 }
 
