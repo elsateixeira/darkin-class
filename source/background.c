@@ -922,6 +922,16 @@ int background_init(
     printf("Computing background\n");
   }
 
+  /** - make the table pointers safe to free even if this function fails
+      before background_solve() allocated them (leak fix, 2026-09-16) */
+  pba->tau_table = NULL;
+  pba->z_table = NULL;
+  pba->loga_table = NULL;
+  pba->d2tau_dz2_table = NULL;
+  pba->d2z_dtau2_table = NULL;
+  pba->background_table = NULL;
+  pba->d2background_dloga2_table = NULL;
+
   /** - if shooting failed during input, catch the error here */
   class_test(pba->shooting_failed == _TRUE_,
              pba->error_message,
@@ -1003,6 +1013,13 @@ int background_free_noinput(
   free(pba->d2z_dtau2_table);
   free(pba->background_table);
   free(pba->d2background_dloga2_table);
+  pba->tau_table = NULL;
+  pba->z_table = NULL;
+  pba->loga_table = NULL;
+  pba->d2tau_dz2_table = NULL;
+  pba->d2z_dtau2_table = NULL;
+  pba->background_table = NULL;
+  pba->d2background_dloga2_table = NULL;
 
   return _SUCCESS_;
 }
@@ -2071,7 +2088,12 @@ int background_solve(
   /* indices for the different arrays */
   int index_loga, index_scf;
   /* what parameters are used in the output? */
-  int * used_in_output;
+  int * used_in_output = NULL;
+
+  /* release everything this function owns if it has to abort, so that a
+     failing background (e.g. during shooting or a rejected MCMC proposal)
+     does not leak the tables (leak fix, 2026-09-16) */
+#define _BG_SOLVE_CLEANUP_ { free(pvecback); free(pvecback_integration); free(used_in_output); background_free_noinput(pba); }
 
   /* index of ncdm species */
   int n_ncdm;
@@ -2085,9 +2107,10 @@ int background_solve(
   class_alloc(pvecback_integration,pba->bi_size*sizeof(double),pba->error_message);
 
   /** - impose initial conditions with background_initial_conditions() */
-  class_call(background_initial_conditions(ppr,pba,pvecback,pvecback_integration,&(loga_ini)),
-             pba->error_message,
-             pba->error_message);
+  class_call_except(background_initial_conditions(ppr,pba,pvecback,pvecback_integration,&(loga_ini)),
+                    pba->error_message,
+                    pba->error_message,
+                    _BG_SOLVE_CLEANUP_);
 
   /** - Determine output vector */
   loga_final = 0.; // with our conventions, loga is in fact log(a/a_0); we integrate until today, when log(a/a_0) = 0
@@ -2131,7 +2154,7 @@ int background_solve(
   }
 
   /** - perform the integration */
-  class_call(generic_evolver(background_derivs,
+  class_call_except(generic_evolver(background_derivs,
                              loga_ini,
                              loga_final,
                              pvecback_integration,
@@ -2148,7 +2171,8 @@ int background_solve(
                              NULL, //'print_variables' in evolver_rk could be set, but, not required
                              pba->error_message),
              pba->error_message,
-             pba->error_message);
+             pba->error_message,
+             _BG_SOLVE_CLEANUP_);
 
   /** - recover some quantities today */
   /* -> age in Gyears */
@@ -2184,7 +2208,7 @@ int background_solve(
   }
 
   /** - fill tables of second derivatives (in view of spline interpolation) */
-  class_call(array_spline_table_lines(pba->z_table,
+  class_call_except(array_spline_table_lines(pba->z_table,
                                       pba->bt_size,
                                       pba->tau_table,
                                       1,
@@ -2192,9 +2216,10 @@ int background_solve(
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
              pba->error_message,
-             pba->error_message);
+             pba->error_message,
+             _BG_SOLVE_CLEANUP_);
 
-  class_call(array_spline_table_lines(pba->tau_table,
+  class_call_except(array_spline_table_lines(pba->tau_table,
                                       pba->bt_size,
                                       pba->z_table,
                                       1,
@@ -2202,9 +2227,10 @@ int background_solve(
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
              pba->error_message,
-             pba->error_message);
+             pba->error_message,
+             _BG_SOLVE_CLEANUP_);
 
-  class_call(array_spline_table_lines(pba->loga_table,
+  class_call_except(array_spline_table_lines(pba->loga_table,
                                       pba->bt_size,
                                       pba->background_table,
                                       pba->bg_size,
@@ -2212,7 +2238,8 @@ int background_solve(
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
              pba->error_message,
-             pba->error_message);
+             pba->error_message,
+             _BG_SOLVE_CLEANUP_);
 
   /** - compute remaining "related parameters" */
 
@@ -2235,8 +2262,9 @@ int background_solve(
     switch (pba->scf_potential) {
       case scf_potential_exp: {
         double e1 = exp(-pba->lambda_scf*phi_bg);
-        class_test(fabs(e1) < 1e-300,
+        class_test_except(fabs(e1) < 1e-300,
                    pba->error_message,
+                   _BG_SOLVE_CLEANUP_,
                    "Cannot reconstruct scf_V0 after shooting because exponential is too small.");
         pba->V0_scf = pvecback[pba->index_bg_V_scf]/(conv*e1);
         break;
@@ -2245,14 +2273,16 @@ int background_solve(
         double e1 = exp(-pba->lambda_scf*phi_bg);
         double e2 = exp(-pba->lambda_scf_2*phi_bg);
         if (pba->scf_shooting_target == scf_shoot_V0) {
-          class_test(fabs(e1) < 1e-300,
+          class_test_except(fabs(e1) < 1e-300,
                      pba->error_message,
+                     _BG_SOLVE_CLEANUP_,
                      "Cannot reconstruct scf_V0 after shooting because exponential is too small.");
           pba->V0_scf = (pvecback[pba->index_bg_V_scf] - conv*pba->V0_scf_2*e2)/(conv*e1);
         }
         else if (pba->scf_shooting_target == scf_shoot_V0_2) {
-          class_test(fabs(e2) < 1e-300,
+          class_test_except(fabs(e2) < 1e-300,
                      pba->error_message,
+                     _BG_SOLVE_CLEANUP_,
                      "Cannot reconstruct scf_V0_2 after shooting because exponential is too small.");
           pba->V0_scf_2 = (pvecback[pba->index_bg_V_scf] - conv*pba->V0_scf*e1)/(conv*e2);
         }
@@ -2332,6 +2362,7 @@ int background_solve(
   free(pvecback);
   free(pvecback_integration);
   free(used_in_output);
+#undef _BG_SOLVE_CLEANUP_
 
   return _SUCCESS_;
 

@@ -585,6 +585,11 @@ cdef class Class:
         if "background" in level:
             if background_init(&(self.pr), &(self.ba)) == _FAILURE_:
                 self.struct_cleanup()
+                # is_allocated is still False here, so struct_cleanup skipped
+                # the background; free its (NULL-safe) tables and the ncdm
+                # input arrays explicitly so a rejected point does not leak
+                # (leak fix, 2026-09-16)
+                background_free(&self.ba)
                 raise CosmoComputationError(self.ba.error_message)
             self.ncp.add("background")
 

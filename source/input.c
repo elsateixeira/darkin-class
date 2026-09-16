@@ -1411,6 +1411,25 @@ int input_get_guess(double *xguess,
            the exact uncoupled limit remains unchanged. */
         xguess[index_guess] += 6.0*ba.C0_scf*ba.beta_scf;
       }
+      if ((ba.attractor_ic_scf == _FALSE_) && (ba.phi_prime_ini_scf != 0.)) {
+        /* A non-zero initial conformal velocity makes the field roll by
+           approximately phi'_ini * tau_ini during its kination phase in
+           radiation domination (phi' decays as a^-2, a grows as tau), so the
+           initial value must be displaced by minus that amount to still
+           reach the requested phi_today. Without this term the Newton
+           search starts far from the root at |phi'_ini| >~ 40 and fails
+           spuriously (rejecting physically valid points), 2026-09-16. */
+        double a_ini_guess = pr.a_ini_over_a_today_default;
+        double Omega_rad_guess = ba.Omega0_g + ba.Omega0_ur + ba.Omega0_idr;
+        double H0_guess = (ba.H0 > 0.) ? ba.H0 : ba.h*1.e5/_c_;
+        int index_ncdm_guess;
+        for (index_ncdm_guess = 0; index_ncdm_guess < ba.N_ncdm; index_ncdm_guess++) {
+          Omega_rad_guess += ba.Omega0_g*(7./8.)*pow(ba.T_ncdm[index_ncdm_guess],4)*ba.deg_ncdm[index_ncdm_guess];
+        }
+        if ((Omega_rad_guess > 0.) && (H0_guess > 0.)) {
+          xguess[index_guess] -= ba.phi_prime_ini_scf*a_ini_guess/(H0_guess*sqrt(Omega_rad_guess));
+        }
+      }
       dxdy[index_guess] = 0.1;
       break;
     case scf_w_phi_today:
@@ -1598,7 +1617,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
     if (input_verbose>2)
       printf("Stage 1: background\n");
     ba.background_verbose = 0;
-    class_call_except(background_init(&pr,&ba), ba.error_message, errmsg, background_free_input(&ba);thermodynamics_free_input(&th);perturbations_free_input(&pt););
+    class_call_except(background_init(&pr,&ba), ba.error_message, errmsg, background_free_noinput(&ba);background_free_input(&ba);thermodynamics_free_input(&th);perturbations_free_input(&pt););
   }
 
   if (pfzw->required_computation_stage >= cs_thermodynamics){
