@@ -933,14 +933,16 @@ int background_init(
              pba->error_message);
 
   /** - find and store a few derived parameters at radiation-matter equality */
-  class_call(background_find_equality(ppr,pba),
-             pba->error_message,
-             pba->error_message);
+  class_call_except(background_find_equality(ppr,pba),
+                    pba->error_message,
+                    pba->error_message,
+                    background_free_noinput(pba));
 
   /* - write a summary of the budget of the universe */
-  class_call(background_output_budget(pba),
-             pba->error_message,
-             pba->error_message);
+  class_call_except(background_output_budget(pba),
+                    pba->error_message,
+                    pba->error_message,
+                    background_free_noinput(pba));
 
   pba->is_allocated = _TRUE_;
 
@@ -2069,9 +2071,10 @@ int background_solve(
   class_alloc(pvecback_integration,pba->bi_size*sizeof(double),pba->error_message);
 
   /** - impose initial conditions with background_initial_conditions() */
-  class_call(background_initial_conditions(ppr,pba,pvecback,pvecback_integration,&(loga_ini)),
-             pba->error_message,
-             pba->error_message);
+  class_call_except(background_initial_conditions(ppr,pba,pvecback,pvecback_integration,&(loga_ini)),
+                    pba->error_message,
+                    pba->error_message,
+                    free(pvecback);free(pvecback_integration));
 
   /** - Determine output vector */
   loga_final = 0.; // with our conventions, loga is in fact log(a/a_0); we integrate until today, when log(a/a_0) = 0
@@ -2115,7 +2118,7 @@ int background_solve(
   }
 
   /** - perform the integration */
-  class_call(generic_evolver(background_derivs,
+  class_call_except(generic_evolver(background_derivs,
                              loga_ini,
                              loga_final,
                              pvecback_integration,
@@ -2131,8 +2134,9 @@ int background_solve(
                              background_sources,
                              NULL, //'print_variables' in evolver_rk could be set, but, not required
                              pba->error_message),
-             pba->error_message,
-             pba->error_message);
+                    pba->error_message,
+                    pba->error_message,
+                    free(pvecback);free(pvecback_integration);free(used_in_output);background_free_noinput(pba));
 
   /** - recover some quantities today */
   /* -> age in Gyears */
@@ -2168,35 +2172,38 @@ int background_solve(
   }
 
   /** - fill tables of second derivatives (in view of spline interpolation) */
-  class_call(array_spline_table_lines(pba->z_table,
+  class_call_except(array_spline_table_lines(pba->z_table,
                                       pba->bt_size,
                                       pba->tau_table,
                                       1,
                                       pba->d2tau_dz2_table,
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
-             pba->error_message,
-             pba->error_message);
+                    pba->error_message,
+                    pba->error_message,
+                    free(pvecback);free(pvecback_integration);free(used_in_output);background_free_noinput(pba));
 
-  class_call(array_spline_table_lines(pba->tau_table,
+  class_call_except(array_spline_table_lines(pba->tau_table,
                                       pba->bt_size,
                                       pba->z_table,
                                       1,
                                       pba->d2z_dtau2_table,
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
-             pba->error_message,
-             pba->error_message);
+                    pba->error_message,
+                    pba->error_message,
+                    free(pvecback);free(pvecback_integration);free(used_in_output);background_free_noinput(pba));
 
-  class_call(array_spline_table_lines(pba->loga_table,
+  class_call_except(array_spline_table_lines(pba->loga_table,
                                       pba->bt_size,
                                       pba->background_table,
                                       pba->bg_size,
                                       pba->d2background_dloga2_table,
                                       _SPLINE_EST_DERIV_,
                                       pba->error_message),
-             pba->error_message,
-             pba->error_message);
+                    pba->error_message,
+                    pba->error_message,
+                    free(pvecback);free(pvecback_integration);free(used_in_output);background_free_noinput(pba));
 
   /** - compute remaining "related parameters" */
 
