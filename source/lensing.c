@@ -122,8 +122,10 @@ int lensing_init(
   double * ksim = NULL;  /* ksim[index_mu] */
 
   int num_mu,index_mu;
-  size_t icount; /* Table sizes and offsets can exceed signed-int range. */
+  int num_mu_all,mu_start,mu_chunk,index_acc;
   size_t l_stride;
+  double *mu_all,*w8_all,*cl_accum;
+  size_t icount; /* High-ell accurate lensing can exceed 2^31 table elements. */
   int l;
   double ll;
   double * cl_unlensed;  /* cl_unlensed[index_ct] */
@@ -167,6 +169,9 @@ int lensing_init(
         printf("(fast mode)\n");
     }
   }
+
+  class_test(ppr->lensing_mu_chunk_size<0,ple->error_message,
+             "lensing_mu_chunk_size must be nonnegative (zero selects full tables)");
 
   /** - initialize indices and allocate some of the arrays in the
       lensing structure */
@@ -224,6 +229,24 @@ int lensing_init(
       w8[index_mu] = sin(theta)*delta_theta; /* We integrate on mu */
     }
   }
+
+  /* Angular nodes are independent. Process bounded batches of Wigner tables
+   * and sum their quadrature contributions instead of allocating O(lmax^2)
+   * tables for all nodes at once. Zero chunk size retains a full-table check. */
+  num_mu_all=num_mu;mu_all=mu;w8_all=w8;
+  mu_chunk=num_mu_all-1;
+  if(ppr->accurate_lensing==_TRUE_ && ppr->lensing_mu_chunk_size>0)
+    mu_chunk=MIN(mu_chunk,ppr->lensing_mu_chunk_size);
+  class_calloc(cl_accum,(size_t)ple->l_size*ple->lt_size,sizeof(double),ple->error_message);
+  for(mu_start=0;mu_start<num_mu_all-1;mu_start+=mu_chunk) {
+    num_mu=MIN(mu_chunk,num_mu_all-1-mu_start)+1;
+    class_alloc(mu,num_mu*sizeof(double),ple->error_message);
+    class_alloc(w8,(num_mu-1)*sizeof(double),ple->error_message);
+    for(index_mu=0;index_mu<num_mu-1;index_mu++) {
+      mu[index_mu]=mu_all[mu_start+index_mu];
+      w8[index_mu]=w8_all[mu_start+index_mu];
+    }
+    mu[num_mu-1]=1.;
 
   /** - Compute \f$ d^l_{mm'} (\mu) \f$*/
 
@@ -529,6 +552,9 @@ int lensing_init(
   //printf("time in Cgl,Cgl2,sigma2=%4.3f s\n",cpu_time);
 
 
+  /* Subtracting the unlensed correlation before quadrature reduces cancellation
+   * in the tiny high-ell tail. Orthogonality gives its integral analytically,
+   * so this is valid for full-sky Gauss-Legendre integration as well as fast mode. */
   /** - compute ksi, ksi+, ksi-, ksiX */
 
   /** - --> ksi is for TT **/
@@ -632,7 +658,7 @@ int lensing_init(
                 (X_p000*X_p000*d00[index_mu][l] +
                  X_220*X_220*d2m2[index_mu][l])
                 *Cgl2[index_mu]*Cgl2[index_mu]);
-        if (ppr->accurate_lensing == _FALSE_) {
+        { /* Integrate the lensing correction and add the known unlensed spectrum analytically. */
           /* Remove unlensed correlation function */
           lens -= d00[index_mu][l];
         }
@@ -651,7 +677,7 @@ int lensing_init(
                  0.5 * Cgl2[index_mu] * Cgl2[index_mu] *
                  ( ( 2.*X_p022*X_p000+X_220*X_220 ) *
                    d20[index_mu][l] + X_220*X_242*d4m2[index_mu][l] ) );
-        if (ppr->accurate_lensing == _FALSE_) {
+        { /* Integrate the lensing correction and add the known unlensed spectrum analytically. */
           lens -= d20[index_mu][l];
         }
         resX *= lens;
@@ -677,7 +703,7 @@ int lensing_init(
                   ( 2.*X_p022*X_p022*d2m2[index_mu][l] +
                     X_220*X_220*d00[index_mu][l] +
                     X_242*X_242*d4m4[index_mu][l] ) );
-        if (ppr->accurate_lensing == _FALSE_) {
+        { /* Integrate the lensing correction and add the known unlensed spectrum analytically. */
           lensp -= d22[index_mu][l];
           lensm -= d2m2[index_mu][l];
         }
@@ -704,7 +730,7 @@ int lensing_init(
     class_call(lensing_lensed_cl_tt(ksi,d00,w8,num_mu-1,ple),
                ple->error_message,
                ple->error_message);
-    if (ppr->accurate_lensing == _FALSE_) {
+    if (mu_start+num_mu-1 == num_mu_all-1) { /* Add the unlensed spectrum once, after the last angular batch. */
       class_call(lensing_addback_cl_tt(ple,cl_tt),
                  ple->error_message,
                  ple->error_message);
@@ -715,7 +741,7 @@ int lensing_init(
     class_call(lensing_lensed_cl_te(ksiX,d20,w8,num_mu-1,ple),
                ple->error_message,
                ple->error_message);
-    if (ppr->accurate_lensing == _FALSE_) {
+    if (mu_start+num_mu-1 == num_mu_all-1) { /* Add the unlensed spectrum once, after the last angular batch. */
       class_call(lensing_addback_cl_te(ple,cl_te),
                  ple->error_message,
                  ple->error_message);
@@ -727,7 +753,7 @@ int lensing_init(
     class_call(lensing_lensed_cl_ee_bb(ksip,ksim,d22,d2m2,w8,num_mu-1,ple),
                ple->error_message,
                ple->error_message);
-    if (ppr->accurate_lensing == _FALSE_) {
+    if (mu_start+num_mu-1 == num_mu_all-1) { /* Add the unlensed spectrum once, after the last angular batch. */
       class_call(lensing_addback_cl_ee_bb(ple,cl_ee,cl_bb),
                  ple->error_message,
                  ple->error_message);
@@ -737,17 +763,15 @@ int lensing_init(
   //cpu_time = (fin-debut);
   //printf("time in final lensing computation=%4.3f s\n",cpu_time);
 
-  /** - spline computed \f$ C_l\f$'s in view of interpolation */
-
-  class_call(array_spline_table_lines(ple->l,
-                                      ple->l_size,
-                                      ple->cl_lens,
-                                      ple->lt_size,
-                                      ple->ddcl_lens,
-                                      _SPLINE_EST_DERIV_,
-                                      ple->error_message),
-             ple->error_message,
-             ple->error_message);
+  for(index_acc=0;index_acc<ple->l_size;index_acc++) {
+    size_t offset=(size_t)index_acc*ple->lt_size;
+    if(ple->has_tt) cl_accum[offset+ple->index_lt_tt]+=ple->cl_lens[offset+ple->index_lt_tt];
+    if(ple->has_te) cl_accum[offset+ple->index_lt_te]+=ple->cl_lens[offset+ple->index_lt_te];
+    if(ple->has_ee || ple->has_bb) {
+      cl_accum[offset+ple->index_lt_ee]+=ple->cl_lens[offset+ple->index_lt_ee];
+      cl_accum[offset+ple->index_lt_bb]+=ple->cl_lens[offset+ple->index_lt_bb];
+    }
+  }
 
   /** - Free lots of stuff **/
   free(buf_dxx);
@@ -793,6 +817,30 @@ int lensing_init(
     free(cl_bb);
   }
   free(cl_pp);
+  } /* angular batches */
+  for(index_acc=0;index_acc<ple->l_size;index_acc++) {
+    size_t offset=(size_t)index_acc*ple->lt_size;
+    if(ple->has_tt) ple->cl_lens[offset+ple->index_lt_tt]=cl_accum[offset+ple->index_lt_tt];
+    if(ple->has_te) ple->cl_lens[offset+ple->index_lt_te]=cl_accum[offset+ple->index_lt_te];
+    if(ple->has_ee || ple->has_bb) {
+      ple->cl_lens[offset+ple->index_lt_ee]=cl_accum[offset+ple->index_lt_ee];
+      ple->cl_lens[offset+ple->index_lt_bb]=cl_accum[offset+ple->index_lt_bb];
+    }
+  }
+  free(cl_accum);free(mu_all);free(w8_all);
+
+  /** - spline computed \f$ C_l\f$'s in view of interpolation */
+
+  class_call(array_spline_table_lines(ple->l,
+                                      ple->l_size,
+                                      ple->cl_lens,
+                                      ple->lt_size,
+                                      ple->ddcl_lens,
+                                      _SPLINE_EST_DERIV_,
+                                      ple->error_message),
+             ple->error_message,
+             ple->error_message);
+
   /** - Exit **/
 
   ple->is_allocated = _TRUE_;

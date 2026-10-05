@@ -584,6 +584,7 @@ class_precision_parameter(mmax_for_p1h_integral,double,1.e18)
  * Lensing precision parameters
  */
 
+class_precision_parameter(lensing_mu_chunk_size,int,256) /**< maximum angular nodes per accurate-lensing batch; zero uses full tables for comparison */
 class_precision_parameter(accurate_lensing,int,_FALSE_) /**< switch between Gauss-Legendre quadrature integration and simple quadrature on a subdomain of angles */
 class_precision_parameter(num_mu_minus_lmax,int,70) /**< difference between num_mu and l_max, increase for more precision */
 class_precision_parameter(delta_l_max,int,500)/**< difference between l_max in unlensed and lensed spectra */

@@ -727,6 +727,19 @@ int perturbations_init(
       printf("Computing sources\n");
   }
 
+  /* The momentum Euler equation has denominator 3 rho_qcdm - Z gamma_Z.
+   * Do not integrate across its pole and then emit NaN spectra with success. */
+  if (pba->has_scf_momentum == _TRUE_ && pba->has_qcdm == _TRUE_) {
+    int ib;
+    for (ib=0;ib<pba->bt_size;ib++) {
+      double *bg=pba->background_table+ib*pba->bg_size;
+      double rho=bg[pba->index_bg_rho_qcdm];
+      double inertia=1.-bg[pba->index_bg_mom_scf]*bg[pba->index_bg_dgamma_scf]/(3.*rho);
+      class_test(!isfinite(inertia) || inertia<=0.,ppt->error_message,
+                 "Momentum Euler denominator reaches/crosses zero: 1-Z*gamma_Z/(3*rho_qcdm)=%g at background row %d. This trajectory cannot be used for perturbation training.",inertia,ib);
+    }
+  }
+
   class_test((ppt->gauge == synchronous) && ((pba->has_cdm == _FALSE_)),
              ppt->error_message,
              "In the synchronous gauge, it is not self-consistent to assume no CDM: the later is used to define the initial timelike hypersurface. You can either add a negligible amount of CDM, or switch to newtonian gauge");

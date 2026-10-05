@@ -25,6 +25,138 @@
 #include "distortions.h"
 #include "output.h"
 
+/* Positive amplitudes/densities are solved in log coordinates. Only the explicit
+ * exponential V0 (+ optional qcdm density) problem uses this solver. */
+static int input_positive_eval(double *u, int n, struct fzerofun_workspace *w,
+                               double *f, int *fevals, ErrorMsg errmsg) {
+  double x[2]; int i, status;
+  for (i=0;i<n;i++) {
+    class_test(!isfinite(u[i]) || fabs(u[i])>200.,errmsg,
+               "IDE positive shooting trial outside finite log-amplitude range");
+    x[i]=exp(u[i]);
+  }
+  (*fevals)++;
+  status=input_try_unknown_parameters(x,n,w,f,errmsg);
+  if (status==_SUCCESS_) for(i=0;i<n;i++)
+    class_test(!isfinite(f[i]),errmsg,"IDE positive shooting returned a nonfinite density residual");
+  return status;
+}
+
+static int input_positive_solve2(double *u, int n, struct fzerofun_workspace *w,
+                                 double tol, int *fevals, ErrorMsg errmsg) {
+  double v[2],f[2],g[2],jac[2][2],step[2],norm,trialnorm,det,scale;
+  int i,j,k,iter,found=0;
+  /* Keep trial variables positive and require every accepted Newton step to
+   * reduce the residual. Failed integrations are rejected, not accepted roots. */
+  if(input_positive_eval(u,n,w,f,fevals,errmsg)==_SUCCESS_) found=1;
+  class_test(!found,errmsg,"IDE positive shooting: no valid initial background found");
+  for(iter=0;iter<100;iter++) {
+    norm=f[0]*f[0]+f[1]*f[1];
+
+    if(MAX(fabs(f[0]),fabs(f[1]))<tol) {return _SUCCESS_;}
+    for(j=0;j<n;j++) {
+      for(i=0;i<n;i++) v[i]=u[i];
+      v[j]+=1.e-3;
+      if(input_positive_eval(v,n,w,g,fevals,errmsg)==_FAILURE_) {
+        v[j]=u[j]-1.e-3;
+        class_call(input_positive_eval(v,n,w,g,fevals,errmsg),errmsg,errmsg);
+      }
+      for(i=0;i<n;i++) jac[i][j]=(g[i]-f[i])/(v[j]-u[j]);
+    }
+    det=jac[0][0]*jac[1][1]-jac[0][1]*jac[1][0];
+    class_test(!isfinite(det)||fabs(det)<1.e-24,errmsg,"IDE positive shooting: singular Jacobian");
+    step[0]=(-f[0]*jac[1][1]+f[1]*jac[0][1])/det;
+    step[1]=(-f[1]*jac[0][0]+f[0]*jac[1][0])/det;
+    scale=MAX(1.,MAX(fabs(step[0]),fabs(step[1]))/2.);
+    for(i=0;i<n;i++) step[i]/=scale;
+    found=0;
+    for(k=0;k<20;k++) {
+      for(i=0;i<n;i++) v[i]=u[i]+step[i];
+      if(input_positive_eval(v,n,w,g,fevals,errmsg)==_SUCCESS_) {
+        trialnorm=g[0]*g[0]+g[1]*g[1];
+        if(trialnorm<norm) {found=1;break;}
+      }
+      for(i=0;i<n;i++) step[i]*=.5;
+    }
+    class_test(!found,errmsg,"IDE positive shooting: damped step could not reduce density residuals");
+    for(i=0;i<n;i++) {u[i]=v[i];f[i]=g[i];}
+  }
+  class_stop(errmsg,"IDE positive shooting exceeded iteration limit");
+}
+
+static int input_positive_shoot(double *x, int n, struct fzerofun_workspace *w,
+                                double tol, int *fevals, ErrorMsg errmsg) {
+  double u[2], f[2], v[2], g[2];
+  double guess[2], derivative[2], lo=0.,hi=0.;
+  int i,k,iter,found=0,have_lo=0,have_hi=0;
+  class_call(input_get_guess(guess,derivative,w,errmsg),errmsg,errmsg);
+  for(i=0;i<n;i++) {
+    class_test(guess[i]<=0. || !isfinite(guess[i]),errmsg,"Positive IDE shooting requires positive initial amplitudes/densities");
+    u[i]=log(guess[i]);x[i]=guess[i];
+  }
+  if(n==1) {
+    /* Search both directions geometrically; never step across V0=0. */
+    for(k=0;k<161;k++) {
+      v[0]=u[0]+(k==0 ? 0. : (k%2 ? 1. : -1.)*((k+1)/2)*log(2.));
+      if(input_positive_eval(v,n,w,g,fevals,errmsg)==_FAILURE_) continue;
+      if(fabs(g[0])<tol) {x[0]=exp(v[0]);return _SUCCESS_;}
+      if(g[0]<0.) {lo=v[0];have_lo=1;}
+      else {hi=v[0];have_hi=1;}
+      if(have_lo && have_hi) {found=1;break;}
+    }
+    class_test(!found,errmsg,"IDE positive shooting: no bracket found in finite positive amplitude search; this is not a physical exclusion");
+    for(iter=0;iter<100;iter++) {
+      v[0]=.5*(lo+hi);
+      class_call(input_positive_eval(v,n,w,g,fevals,errmsg),errmsg,errmsg);
+      if(fabs(g[0])<tol) {x[0]=exp(v[0]);return _SUCCESS_;}
+      if(g[0]<0.) {lo=v[0];} else {hi=v[0];}
+    }
+    class_stop(errmsg,"IDE positive shooting did not meet density residual tolerance");
+  }
+  /* Prefer the direct local solve; continuation is a recovery path. */
+  for(i=0;i<n;i++) v[i]=u[i];
+  if(input_positive_solve2(v,n,w,tol,fevals,errmsg)==_SUCCESS_) {
+    for(i=0;i<n;i++) x[i]=exp(v[i]);
+    return _SUCCESS_;
+  }
+  /* Continue from the constant-potential uncoupled solution. All changes are
+   * private to the shooting workspace and restored before returning. */
+  {
+    int ib=-1,il=-1,status=_FAILURE_;
+    double beta=0.,lambda=0.,t=0.,dt=.125,trial[2];
+    FileArg beta_saved,lambda_saved;
+    for(i=0;i<w->fc.size;i++) {
+      if(!strcmp(w->fc.name[i],"scf_beta")) ib=i;
+      if(!strcmp(w->fc.name[i],"scf_lambda")) il=i;
+    }
+    class_test(ib<0 || il<0,errmsg,"IDE continuation requires explicit scf_beta and scf_lambda");
+    strcpy(beta_saved,w->fc.value[ib]);strcpy(lambda_saved,w->fc.value[il]);
+    beta=atof(beta_saved);lambda=atof(lambda_saved);
+    strcpy(w->fc.value[ib],"0");strcpy(w->fc.value[il],"0");
+    status=input_positive_solve2(u,n,w,tol,fevals,errmsg);
+    while(status==_SUCCESS_ && t<1.) {
+      double next=MIN(1.,t+dt);
+      class_sprintf(w->fc.value[ib],"%.20e",next*beta);
+      class_sprintf(w->fc.value[il],"%.20e",next*lambda);
+      for(i=0;i<n;i++) trial[i]=u[i];
+      status=input_positive_solve2(trial,n,w,tol,fevals,errmsg);
+      if(status==_SUCCESS_) {
+        for(i=0;i<n;i++) u[i]=trial[i];
+        t=next;dt=MIN(.25,dt*1.5);
+      }
+      else if(dt>1.e-3) {dt*=.5;status=_SUCCESS_;}
+    }
+    strcpy(w->fc.value[ib],beta_saved);strcpy(w->fc.value[il],lambda_saved);
+    class_test(status==_FAILURE_ || t<1.,errmsg,
+               "IDE positive continuation failed at fraction %.6g of requested coupling/slope; no physical exclusion inferred",t);
+    for(i=0;i<n;i++) x[i]=exp(u[i]);
+    /* Check residuals again with the exact requested (restored) parameters. */
+    class_call(input_positive_eval(u,n,w,f,fevals,errmsg),errmsg,errmsg);
+    class_test(MAX(fabs(f[0]),fabs(f[1]))>=tol,errmsg,"IDE continuation final density residual exceeds tolerance");
+    return _SUCCESS_;
+  }
+}
+
 /**
  * Initialize input parameters from external file.
  *
@@ -526,6 +658,8 @@ int input_shooting(struct file_content * pfc,
   int target_indices[_NUM_TARGETS_];
   int needs_shooting;
   int shooting_failed=_FALSE_;
+  int positive_shooting=_FALSE_, explicit_flag, potential_flag;
+  FileArg shooting_target, potential_name;
 
   /* array of parameters passed by the user for which we need shooting (= target parameters) */
   char * const target_namestrings[] = {"100*theta_s",
@@ -651,6 +785,28 @@ int input_shooting(struct file_content * pfc,
       strcpy(fzw.fc.name[fzw.unknown_parameters_index[counter]],unknown_namestrings[index_target]);
     }
 
+    /* Restrict the new solver to explicit exponential-amplitude shooting. */
+    class_call(parser_read_string(pfc,"scf_shooting_target",&shooting_target,&explicit_flag,errmsg),errmsg,errmsg);
+    class_call(parser_read_string(pfc,"scf_potential",&potential_name,&potential_flag,errmsg),errmsg,errmsg);
+    if (explicit_flag && potential_flag &&
+        (!strcmp(shooting_target,"scf_V0") || !strcmp(shooting_target,"V0")) &&
+        !strcmp(potential_name,"exp") &&
+        fzw.target_name[0]==Omega_scf &&
+        (unknown_parameters_size==1 || (unknown_parameters_size==2 &&
+         (fzw.target_name[1]==Omega_qcdm || fzw.target_name[1]==omega_qcdm)))) positive_shooting=_TRUE_;
+    if(positive_shooting) {
+      class_call(parser_read_double(pfc,"scf_V0",&param2,&flag2,errmsg),errmsg,errmsg);
+      if(flag2 && param2<=0.) positive_shooting=_FALSE_;
+    }
+    /* Legacy parameter-list tuning can refer to a different unknown. */
+    for(counter=0;counter<pfc->size;counter++)
+      if(!strcmp(pfc->name[counter],"scf_parameters")) positive_shooting=_FALSE_;
+    if(positive_shooting && unknown_parameters_size==2) {
+      class_call(parser_read_double(pfc,"scf_beta",&param2,&flag2,errmsg),errmsg,errmsg);
+      if(!flag2) positive_shooting=_FALSE_;
+    }
+
+
     /** If there is only one parameter, we use a more efficient Newton method for 1D cases */
     if (unknown_parameters_size == 1){
 
@@ -662,7 +818,7 @@ int input_shooting(struct file_content * pfc,
       }
 
       /* If shooting fails, postpone error to background module to play nice with MontePython. */
-      class_call_try(input_find_root(&xzero,
+      class_call_try(positive_shooting ? input_positive_shoot(&xzero,1,&fzw,ppr->tol_shooting_deltaF,&fevals,errmsg) : input_find_root(&xzero,
                                      &fevals,
                                      ppr->tol_shooting_deltax_rel,
                                      &fzw,
@@ -709,7 +865,7 @@ int input_shooting(struct file_content * pfc,
                  errmsg);
 
       /* Use multi-dimensional Newton method */
-      class_call_try(fzero_Newton(input_try_unknown_parameters,
+      class_call_try(positive_shooting ? input_positive_shoot(x_inout,unknown_parameters_size,&fzw,ppr->tol_shooting_deltaF,&fevals,errmsg) : fzero_Newton(input_try_unknown_parameters,
                                   x_inout,
                                   dxdF,
                                   unknown_parameters_size,
