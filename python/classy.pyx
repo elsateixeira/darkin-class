@@ -349,10 +349,12 @@ cdef class Class:
           resource_path = abspath(importlib.resources.files('classy'))
         except Exception:
           resource_path = dirname(abspath(__file__))
-          for _ in range(6):
-            if exists(join(resource_path, "external", "bbn")):
-              break
-            resource_path = dirname(resource_path)
+        # resources.files() can return the extension directory for an in-place
+        # build. Locate the data root even when that call did not raise.
+        for _ in range(6):
+          if exists(join(resource_path, "external", "bbn")):
+            break
+          resource_path = dirname(resource_path)
         path_to_this_as_bytes = resource_path.encode()
         dumc = path_to_this_as_bytes
         sprintf(self.path_to_this,"%s",dumc)

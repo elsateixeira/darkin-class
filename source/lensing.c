@@ -121,7 +121,9 @@ int lensing_init(
   double * ksip = NULL;  /* ksip[index_mu] */
   double * ksim = NULL;  /* ksim[index_mu] */
 
-  int num_mu,index_mu,icount;
+  int num_mu,index_mu;
+  size_t icount; /* Table sizes and offsets can exceed signed-int range. */
+  size_t l_stride;
   int l;
   double ll;
   double * cl_unlensed;  /* cl_unlensed[index_ct] */
@@ -184,6 +186,9 @@ int lensing_init(
     /* Integrate correlation function difference on [0,pi/16] */
     num_mu = (ple->l_unlensed_max * 2 )/16;
   }
+  class_test(num_mu<2,ple->error_message,
+             "Lensing requires at least two angular nodes");
+
   /** - allocate array of \f$ \mu \f$ values, as well as quadrature weights */
 
   class_alloc(mu,
@@ -238,7 +243,7 @@ int lensing_init(
   class_alloc(d2m2,
               num_mu*sizeof(double*),
               ple->error_message);
-  icount += 4*num_mu*(ple->l_unlensed_max+1);
+  icount += (size_t)4*num_mu*(ple->l_unlensed_max+1);
 
   if (ple->has_te==_TRUE_) {
 
@@ -253,7 +258,7 @@ int lensing_init(
     class_alloc(d4m2,
                 num_mu*sizeof(double*),
                 ple->error_message);
-    icount += 3*num_mu*(ple->l_unlensed_max+1);
+    icount += (size_t)3*num_mu*(ple->l_unlensed_max+1);
   }
 
   if (ple->has_ee==_TRUE_ || ple->has_bb==_TRUE_) {
@@ -277,7 +282,7 @@ int lensing_init(
     class_alloc(d4m4,
                 num_mu*sizeof(double*),
                 ple->error_message);
-    icount += 5*num_mu*(ple->l_unlensed_max+1);
+    icount += (size_t)5*num_mu*(ple->l_unlensed_max+1);
   }
 
   icount += 5*(ple->l_unlensed_max+1); /* for arrays sqrt1[l] to sqrt5[l] */
@@ -288,34 +293,35 @@ int lensing_init(
               ple->error_message);
 
   icount = 0;
+  l_stride = (size_t)ple->l_unlensed_max+1;
   for (index_mu=0; index_mu<num_mu; index_mu++) {
 
-    d00[index_mu] = &(buf_dxx[icount+index_mu            * (ple->l_unlensed_max+1)]);
-    d11[index_mu] = &(buf_dxx[icount+(index_mu+num_mu)   * (ple->l_unlensed_max+1)]);
-    d1m1[index_mu]= &(buf_dxx[icount+(index_mu+2*num_mu) * (ple->l_unlensed_max+1)]);
-    d2m2[index_mu]= &(buf_dxx[icount+(index_mu+3*num_mu) * (ple->l_unlensed_max+1)]);
+    d00[index_mu] = &(buf_dxx[icount+(size_t)index_mu*l_stride]);
+    d11[index_mu] = &(buf_dxx[icount+((size_t)index_mu+(size_t)num_mu)*l_stride]);
+    d1m1[index_mu]= &(buf_dxx[icount+((size_t)index_mu+2*(size_t)num_mu)*l_stride]);
+    d2m2[index_mu]= &(buf_dxx[icount+((size_t)index_mu+3*(size_t)num_mu)*l_stride]);
   }
-  icount += 4*num_mu*(ple->l_unlensed_max+1);
+  icount += (size_t)4*num_mu*(ple->l_unlensed_max+1);
 
   if (ple->has_te==_TRUE_) {
     for (index_mu=0; index_mu<num_mu; index_mu++) {
-      d20[index_mu] = &(buf_dxx[icount+index_mu            * (ple->l_unlensed_max+1)]);
-      d3m1[index_mu]= &(buf_dxx[icount+(index_mu+num_mu)   * (ple->l_unlensed_max+1)]);
-      d4m2[index_mu]= &(buf_dxx[icount+(index_mu+2*num_mu) * (ple->l_unlensed_max+1)]);
+      d20[index_mu] = &(buf_dxx[icount+(size_t)index_mu*l_stride]);
+      d3m1[index_mu]= &(buf_dxx[icount+((size_t)index_mu+(size_t)num_mu)*l_stride]);
+      d4m2[index_mu]= &(buf_dxx[icount+((size_t)index_mu+2*(size_t)num_mu)*l_stride]);
     }
-    icount += 3*num_mu*(ple->l_unlensed_max+1);
+    icount += (size_t)3*num_mu*(ple->l_unlensed_max+1);
   }
 
   if (ple->has_ee==_TRUE_ || ple->has_bb==_TRUE_) {
 
     for (index_mu=0; index_mu<num_mu; index_mu++) {
-      d22[index_mu] = &(buf_dxx[icount+index_mu            * (ple->l_unlensed_max+1)]);
-      d31[index_mu] = &(buf_dxx[icount+(index_mu+num_mu)   * (ple->l_unlensed_max+1)]);
-      d3m3[index_mu]= &(buf_dxx[icount+(index_mu+2*num_mu) * (ple->l_unlensed_max+1)]);
-      d40[index_mu] = &(buf_dxx[icount+(index_mu+3*num_mu) * (ple->l_unlensed_max+1)]);
-      d4m4[index_mu]= &(buf_dxx[icount+(index_mu+4*num_mu) * (ple->l_unlensed_max+1)]);
+      d22[index_mu] = &(buf_dxx[icount+(size_t)index_mu*l_stride]);
+      d31[index_mu] = &(buf_dxx[icount+((size_t)index_mu+(size_t)num_mu)*l_stride]);
+      d3m3[index_mu]= &(buf_dxx[icount+((size_t)index_mu+2*(size_t)num_mu)*l_stride]);
+      d40[index_mu] = &(buf_dxx[icount+((size_t)index_mu+3*(size_t)num_mu)*l_stride]);
+      d4m4[index_mu]= &(buf_dxx[icount+((size_t)index_mu+4*(size_t)num_mu)*l_stride]);
     }
-    icount += 5*num_mu*(ple->l_unlensed_max+1);
+    icount += (size_t)5*num_mu*(ple->l_unlensed_max+1);
   }
 
   sqrt1 = &(buf_dxx[icount]);

@@ -521,7 +521,7 @@ int input_shooting(struct file_content * pfc,
   int unknown_parameters_size;
   int counter, index_target;
   int fevals=0;
-  double xzero;
+  double xzero=0.;
   double *dxdF, *x_inout;
   int target_indices[_NUM_TARGETS_];
   int needs_shooting;
@@ -1363,8 +1363,9 @@ int input_get_guess(double *xguess,
       dxdy[index_guess] = 1.0;
       break;
     case omega_qcdm:
-      xguess[index_guess] = pfzw->target_value[index_guess]/ba.h/ba.h;
-      dxdy[index_guess] = 0.1;
+      /* The unknown omega_ini_qcdm is a physical density, not Omega. */
+      xguess[index_guess] = pfzw->target_value[index_guess];
+      dxdy[index_guess] = ba.h*ba.h;
       break;
     case sigma8:
       /* Assume linear relationship between A_s and sigma8 and fix coefficient

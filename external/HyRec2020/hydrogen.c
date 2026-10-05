@@ -127,7 +127,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
 
   FILE *fA = fopen(alpha_file, "r");
   if (fA == NULL) {
-    sprintf(sub_message, "in allocate_and_read_atomic: could not open file %s \n", alpha_file);
+    snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not open file %s \n", alpha_file);
     strcat(error_message, sub_message);
     *error = 1;
     return;
@@ -140,7 +140,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
 
   FILE *fR = fopen(rr_file, "r");
   if (fR == NULL) {
-    sprintf(sub_message, "in allocate_and_read_atomic: could not open file %s \n", rr_file);
+    snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not open file %s \n", rr_file);
     strcat(error_message, sub_message);
     *error = 1;
     return;
@@ -162,7 +162,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
   for (i = 0; i < NTR; i++) {
     for (j = 0; j < NTM; j++) for (l = 0; l <= 3; l++) {
       if( fscanf(fA, "%le", &(atomic->logAlpha_tab[l][j][i])) != 1){
-        sprintf(sub_message, "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", alpha_file);
+        snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", alpha_file);
         strcat(error_message, sub_message);
         *error = 1;
         return;
@@ -170,7 +170,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
       atomic->logAlpha_tab[l][j][i] = log(atomic->logAlpha_tab[l][j][i]);
     }
     if ( fscanf(fR, "%le", &(atomic->logR2p2s_tab[i])) != 1){
-        sprintf(sub_message, "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", rr_file);
+        snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", rr_file);
         strcat(error_message, sub_message);
         *error = 1;
         return;
@@ -194,7 +194,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
 
   f2g = fopen(twog_file, "r");
   if (f2g == NULL) {
-    sprintf(sub_message, "in allocate_and_read_atomic: could not open file %s \n", twog_file);
+    snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not open file %s \n", twog_file);
     strcat(error_message, sub_message);
     *error = 1;
     return;
@@ -208,7 +208,7 @@ void allocate_and_read_atomic(HYREC_ATOMIC *atomic, int *error, char *path_to_hy
     fscanf_counter+= fscanf(f2g, "%le", &(atomic->A3s3d_tab[b]));
     fscanf_counter+= fscanf(f2g, "%le", &(atomic->A4s4d_tab[b]));
     if(fscanf_counter!=5){
-      sprintf(sub_message, "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", twog_file);
+      snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", twog_file);
       strcat(error_message, sub_message);
       *error = 1;
       return;
@@ -280,7 +280,7 @@ void allocate_and_read_fit(FIT_FUNC *fit, int *error, char *path_to_hyrec, char 
 
   FILE *fA = fopen(fit_file, "r");
   if (fA == NULL) {
-    sprintf(sub_message, "in allocate_and_read_fit: could not open file %s \n", fit_file);
+    snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_fit: could not open file %s \n", fit_file);
     strcat(error_message, sub_message);
     *error = 1;
     return;
@@ -297,7 +297,7 @@ void allocate_and_read_fit(FIT_FUNC *fit, int *error, char *path_to_hyrec, char 
   for (i = 0; i < DKK_SIZE; i++) {
     for (j = 0; j < 5; j++) {
       if( fscanf(fA,"%le", &(fit->swift_func[j][i])) != 1){
-        sprintf(sub_message, "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", fit_file);
+        snprintf(sub_message, sizeof(sub_message), "in allocate_and_read_atomic: could not read file %s completely -- The file might be corrupted\n", fit_file);
         strcat(error_message, sub_message);
         *error = 1;
         return;
