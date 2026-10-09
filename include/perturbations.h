@@ -876,6 +876,7 @@ extern "C" {
   int perturbations_initial_conditions(
                                        struct precision * ppr,
                                        struct background * pba,
+                                       struct thermodynamics * pth,
                                        struct perturbations * ppt,
                                        int index_md,
                                        int index_ic,
