@@ -3545,7 +3545,7 @@ double B_cff_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 1.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return - 3.0*rho_idm/(a*a*C_scf(pba,phi));
   }
   return - 3.0*rho_idm/(a*a*C_scf(pba,phi) + D_scf(pba,phi)*(a*a*3.0*rho_idm - phi_prime*phi_prime));
@@ -3563,7 +3563,7 @@ double B1_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return (1./2.)*a*a*dC_scf(pba,phi);
   }
   return (1./2.)*a*a*dC_scf(pba,phi) - 3.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi)*phi_prime - 
@@ -3584,7 +3584,7 @@ double B2_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return 0.0;
   }
   return -(1./2.)*D_scf(pba,phi)*phi_prime;
@@ -3602,7 +3602,7 @@ double B3_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return 0.0;
   }
   return -3.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi) - 2.*D_scf(pba,phi)*phi_prime*(dC_scf(pba,phi)/C_scf(pba,phi) +
@@ -3622,7 +3622,7 @@ double B4_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return (1./2.)*a*a*ddC_scf(pba,phi) + Q_scf(pba,phi,phi_prime,rho_idm,a,pvecback)*a*a*dC_scf(pba,phi)/(3.0*rho_idm);
   }
   return (1./2.)*a*a*ddC_scf(pba,phi) - a*a*D_scf(pba,phi)*ddV_scf(pba,phi) - a*a*dD_scf(pba,phi)*dV_scf(pba,phi) - 
@@ -3644,7 +3644,7 @@ double B5_scf(
   if (pba->has_qcdm_de_q == _FALSE_) {
     return 0.0;
   }
-  if (pba->has_scf_disformal == _FALSE_) {
+  if ((pba->has_scf_disformal == _FALSE_) || (pba->D0_scf == 0.)) {
     return 0.0;
   }
   return 6.*a*pvecback[pba->index_bg_H]*D_scf(pba,phi)*phi_prime + 
