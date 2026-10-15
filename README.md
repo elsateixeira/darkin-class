@@ -102,7 +102,7 @@ darkin-class builds on CLASS, developed by Julien Lesgourgues, Thomas Tram, Nils
 
 ## Acknowledgements
 
-We thank Vitor Fonseca and Jurgen Mifsud for their help with darkin-class.
+We thank Vitor Fonseca and Jurgen Mifsud for discussions and input on CLASS implementations.
 
 ## Support
 
