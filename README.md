@@ -1,139 +1,105 @@
-CLASS: Cosmic Linear Anisotropy Solving System  {#mainpage}
-==============================================
-
 <p align="center">
-  <img src="darkin-class-logo.png" alt="CLASS-DExDM logo" width="320">
+  <img src="darkin-class-logo.png" alt="darkin-class logo" width="320">
 </p>
 
-Authors: Julien Lesgourgues, Thomas Tram, Nils Schoeneberg
+# darkin-class
 
-with several major inputs from other people, especially Benjamin
-Audren, Simon Prunet, Jesus Torrado, Miguel Zumalacarregui, Francesco
-Montanari, Deanna Hooper, Samuel Brieden, Daniel Meinert, Matteo Lucca, etc.
+**Dark energy–dark matter interactions in CLASS.**
 
-For download and information, see http://class-code.net
+Authors: Elsa M. Teixeira and William Giarè
 
+darkin-class extends the [CLASS Einstein–Boltzmann solver](https://github.com/lesgourg/class_public) to study interacting dark-sector models at the background and linear perturbation levels. It provides scalar-field couplings to fluid dark matter alongside the familiar CLASS workflow for cosmological observables.
 
-Compiling CLASS and getting started
------------------------------------
+[Getting started](#getting-started) · [Coupling guide](doc/input/COUPLINGS.md) · [Examples](#examples-and-documentation) · [Publications](#publications-and-citation) · [Support](#support)
 
-(the information below can also be found on the webpage, just below
-the download button)
+## Features
 
-Download the code from the webpage and unpack the archive (tar -zxvf
-class_vx.y.z.tar.gz), or clone it from
-https://github.com/lesgourg/class_public. Go to the class directory
-(cd class/ or class_public/ or class_vx.y.z/) and compile (make clean;
-make class). You can usually speed up compilation with the option -j:
-make -j class. If the first compilation attempt fails, you may need to
-open the Makefile and adapt the name of the compiler (default: gcc),
-of the optimization flag (default: -O4 -ffast-math) and of the OpenMP
-flag (default: -fopenmp; this flag is facultative, you are free to
-compile without OpenMP if you don't want parallel execution; note that
-you need the version 4.2 or higher of gcc to be able to compile with
--fopenmp). Many more details on the CLASS compilation are given on the
-wiki page
+- **Several interaction sectors:** conformal, disformal, mixed conformal–disformal, entropy, and momentum couplings. The conformal–disformal sector uses a general coupling function `Q` and its perturbation; entropy and momentum interactions have separate source terms.
+- **Scalar-field potentials:** exponential and double-exponential forms, with named input parameters or ordered parameter lists. Potential functions can be extended in the source code.
+- **Cosmological predictions:** background evolution, CMB angular power spectra, and linear matter power spectra through CLASS.
+- **Command-line and Python interfaces:** run `.ini` files or use the `classy` wrapper in scripts and notebooks.
+- **Example configurations:** coupling-specific Cobaya YAML files and notebooks to explore the implementation.
 
-https://github.com/lesgourg/class_public/wiki/Installation
+The scalar-field-coupled dark matter component is `qcdm`, configured with `omega_qcdm` or `Omega_qcdm`. It is distinct from CLASS's built-in `idm` species. See the [coupling guide](doc/input/COUPLINGS.md) for conventions, initial conditions, and coupling combinations. That guide is currently marked as awaiting review; check the implementation when using it for research.
 
-(in particular, for compiling on Mac >= 10.9 despite of the clang
-incompatibility with OpenMP).
+## Getting started
 
-To check that the code runs, type:
+### Build the command-line solver
 
-    ./class explanatory.ini
+You need Git, GNU Make, and C/C++ compilers. Compiler names and flags can be adjusted in the [Makefile](Makefile).
 
-The explanatory.ini file is THE reference input file, containing and
-explaining the use of all possible input parameters. We recommend to
-read it, to keep it unchanged (for future reference), and to create
-for your own purposes some shorter input files, containing only the
-input lines which are useful for you. Input files must have a *.ini
-extension. We provide an example of an input file containing a
-selection of the most used parameters, default.ini, that you may use as a
-starting point.
+```sh
+git clone https://github.com/elsateixeira/darkin-class.git
+cd darkin-class
+make -j class
+mkdir -p output
+./class default.ini
+```
 
-If you want to play with the precision/speed of the code, you can use
-one of the provided precision files (e.g. cl_permille.pre) or modify
-one of them, and run with two input files, for instance:
+The supplied `default.ini` requests CMB and matter power spectra. Output files are written under `output/` unless you set a different `root` in your input file. This first run checks the standard CLASS workflow; configure a coupling separately to explore interacting models.
 
-    ./class test.ini cl_permille.pre
+For compiler troubleshooting, including macOS compiler setup, consult the [CLASS installation guide](https://github.com/lesgourg/class_public/wiki/Installation). Use this repository's Makefile as the reference for its current build flags.
 
-The files *.pre are suppposed to specify the precision parameters for
-which you don't want to keep default values. If you find it more
-convenient, you can pass these precision parameter values in your *.ini
-file instead of an additional *.pre file.
+### Set up an interacting model
 
-The automatically-generated documentation is located in
+Start with the [coupling guide](doc/input/COUPLINGS.md), which describes:
 
-    doc/manual/html/index.html
-    doc/manual/CLASS_manual.pdf
+- the required scalar-field and coupled-dark-matter densities;
+- the coupling selector and named parameters for each sector;
+- potential parameters and scalar-field initial conditions;
+- parameter-list ordering and combined couplings.
 
-On top of that, if you wish to modify the code, you will find lots of
-comments directly in the files.
+Create a separate `.ini` file for your model, then run:
 
-Python
-------
+```sh
+./class my_model.ini
+```
 
-To use CLASS from python, or ipython notebooks, or from the Monte
-Python parameter extraction code, you need to compile not only the
-code, but also its python wrapper. This can be done by typing just
-'make' instead of 'make class' (or for speeding up: 'make -j'). More
-details on the wrapper and its compilation are found on the wiki page
+Keep [explanatory.ini](explanatory.ini) as a reference for general CLASS inputs. A precision file can be passed as a second argument, for example `./class my_model.ini cl_permille.pre`.
 
-https://github.com/lesgourg/class_public/wiki
+### Use Python
 
-Plotting utility
-----------------
+Install the wrapper in a dedicated environment so it is easy to identify which CLASS implementation you are using:
 
-Since version 2.3, the package includes an improved plotting script
-called CPU.py (Class Plotting Utility), written by Benjamin Audren and
-Jesus Torrado. It can plot the Cl's, the P(k) or any other CLASS
-output, for one or several models, as well as their ratio or percentage
-difference. The syntax and list of available options is obtained by
-typing 'pyhton CPU.py -h'. There is a similar script for MATLAB,
-written by Thomas Tram. To use it, once in MATLAB, type 'help
-plot_CLASS_output.m'
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install setuptools wheel numpy cython
+make -j all PYTHON=python
+```
 
-Developing the code
---------------------
+The wrapper is imported as `from classy import Class`. Start with the [warmup notebook](notebooks/warmup.ipynb) for the Python interface and the [coupling example](notebooks/Coupling_example.ipynb) for dark-sector inputs. Running notebooks requires Jupyter in the same environment.
 
-If you want to develop the code, we suggest that you download it from
-the github webpage
+## Examples and documentation
 
-https://github.com/lesgourg/class_public
+| Resource | Use it for |
+| --- | --- |
+| [Coupling guide](doc/input/COUPLINGS.md) | Interaction parameters, conventions, and input templates; review status noted above |
+| [Coupling notebook](notebooks/Coupling_example.ipynb) | Exploring dark-sector inputs in Python |
+| [Cobaya configurations](configs/couplings/) | Coupling-specific inference setups; adapt paths, priors, and likelihood requirements to your analysis |
+| [Python notebooks](notebooks/) | Examples of backgrounds, spectra, and other CLASS calculations |
+| [explanatory.ini](explanatory.ini) | Detailed general CLASS input reference |
+| [default.ini](default.ini) | A shorter starting point for command-line runs |
+| [Source code](source/) | Background equations, perturbation evolution, and observables |
 
-rather than from class-code.net. Then you will enjoy all the feature
-of git repositories. You can even develop your own branch and get it
-merged to the public distribution. For related instructions, check
+The inherited plotting utility supports CLASS output files. Run `python CPU.py -h` for usage; a MATLAB counterpart is available in [plot_CLASS_output.m](plot_CLASS_output.m).
 
-https://github.com/lesgourg/class_public/wiki/Public-Contributing
+## Publications and citation
 
-Using the code
---------------
+This repository is associated with work on interacting dark-sector models, including:
 
-You can use CLASS freely, provided that in your publications, you cite
-at least the paper `CLASS II: Approximation schemes <http://arxiv.org/abs/1104.2933>`. Feel free to cite more CLASS papers!
+- [Dissecting kinetically coupled quintessence: phenomenology and observational tests](https://arxiv.org/abs/2207.13682).
+- [Scalar field dark matter and dark energy: a hybrid model for the dark sector](https://arxiv.org/abs/2211.13653).
+- [Forecasts on interacting dark energy with standard sirens](https://arxiv.org/abs/2309.06544).
+- [Alleviating cosmological tensions with a hybrid dark sector](https://arxiv.org/abs/2412.14139).
 
-How to use darkin-class
------------------------------------
+When using darkin-class in a publication, cite the work relevant to your model and the underlying CLASS solver, including [CLASS II: Approximation schemes](https://arxiv.org/abs/1104.2933). Record the commit and configuration used for your analysis: the current development version and example files should not be assumed to reproduce every published result without the corresponding historical setup.
 
-The coupling workflow (conformal, disformal, mixed, entropy, momentum) is documented here:
+## Credits
 
-- [`doc/input/COUPLINGS.md`](doc/input/COUPLINGS.md)
+darkin-class builds on CLASS, developed by Julien Lesgourgues, Thomas Tram, Nils Schöneberg, and many contributors. See the [CLASS project](https://github.com/lesgourg/class_public) for the upstream code, contributors, and documentation.
 
-It includes:
+## Support
 
-- required background settings (`Omega_scf`, `omega_qcdm`, `scf_coupling_type`)
-- parameter lists for each coupling type
-- `scf_parameters` ordering for `exp` and `double_exp` potentials
-- explicit `scf_*` input mode vs list mode
-- copy-paste templates and example files in this repo
-
-Support
--------
-
-To get support, please open a new issue on the
-
-https://github.com/lesgourg/class_public
-
-webpage!
+For questions, bug reports, or suggestions specific to darkin-class, [open an issue in this repository](https://github.com/elsateixeira/darkin-class/issues). Include your commit, platform, input file, and full error message so the problem can be reproduced.
