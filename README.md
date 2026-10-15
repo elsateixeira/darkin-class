@@ -100,6 +100,10 @@ When using darkin-class in a publication, cite the work relevant to your model a
 
 darkin-class builds on CLASS, developed by Julien Lesgourgues, Thomas Tram, Nils Schöneberg, and many contributors. See the [CLASS project](https://github.com/lesgourg/class_public) for the upstream code, contributors, and documentation.
 
+## Acknowledgements
+
+We thank Vitor Fonseca and Jurgen Mifsud for their help with darkin-class.
+
 ## Support
 
 For questions, bug reports, or suggestions specific to darkin-class, [open an issue in this repository](https://github.com/elsateixeira/darkin-class/issues). Include your commit, platform, input file, and full error message so the problem can be reproduced.
